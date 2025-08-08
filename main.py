@@ -30,11 +30,13 @@ except ImportError:
 sys.path.append('lib')
 from wifi_manager import WiFiManager
 from reaper_client import ReaperClient
+from power_manager import PowerManager
 
 class ReaperRemote:
     def __init__(self):
         self.wifi = WiFiManager()
         self.reaper = ReaperClient()
+        self.power = PowerManager()
         self.last_status_update = 0
         self.script_id = None
         self.current_status = None
@@ -42,6 +44,10 @@ class ReaperRemote:
         # Display state
         self.current_screen = "startup"
         self.status_line = "Starting..."
+        
+        # Power management state
+        self.just_started_playing = False
+        self.play_start_time = 0
         
         # Initialize display
         self.init_display()
@@ -153,6 +159,32 @@ class ReaperRemote:
         else:
             lcd.setTextColor(COLOR_ERROR, COLOR_BG)
             lcd.print("WiFi ERR")
+        
+        # Power status indicator
+        idle_time = int(self.power.get_idle_time())
+        if idle_time < 30:
+            color = COLOR_SUCCESS
+        elif idle_time < 50:
+            color = COLOR_WARNING
+        else:
+            color = COLOR_ERROR
+            
+        lcd.setTextColor(color, COLOR_BG)
+        lcd.setCursor(80, 220)
+        lcd.print(f"I:{idle_time}s")
+        
+        # Battery indicator
+        battery_percent = self.power.get_estimated_battery_percent()
+        if battery_percent > 50:
+            bat_color = COLOR_SUCCESS
+        elif battery_percent > 20:
+            bat_color = COLOR_WARNING
+        else:
+            bat_color = COLOR_ERROR
+            
+        lcd.setTextColor(bat_color, COLOR_BG)
+        lcd.setCursor(140, 220)
+        lcd.print(f"B:{battery_percent}%")
     
     def update_connection_info(self):
         """Update connection information on display"""
@@ -226,18 +258,79 @@ class ReaperRemote:
             return True
         return False
     
+    def check_power_management(self):
+        """Check if we should enter sleep mode"""
+        # Don't sleep if in simulator mode (for testing)
+        if USING_SIMULATOR:
+            return False
+        
+        # Get current play state and track info
+        time_info = self.reaper.get_play_time()
+        is_playing = time_info.get("is_playing", False)
+        
+        # If we just started playing, wait before considering sleep
+        if self.just_started_playing:
+            if time.time() - self.play_start_time >= self.power.post_play_delay:
+                self.just_started_playing = False
+            else:
+                return False  # Still in post-play delay
+        
+        # Case 1: Playing - check if we should sleep during playback
+        if is_playing and not self.just_started_playing:
+            # Get track length from current tab
+            track_length_sec = 0
+            if self.current_status and self.current_status.get("active_tab"):
+                track_length_sec = self.current_status["active_tab"].get("length", 0)
+            
+            should_sleep, sleep_duration = self.power.should_sleep_during_playback(
+                time_info, track_length_sec
+            )
+            
+            if should_sleep:
+                print(f"[POWER] Sleeping during playback for {sleep_duration:.1f}s")
+                self.power.prepare_for_sleep(lcd)
+                self.power.enter_light_sleep(sleep_duration)
+                self.power.wake_from_sleep(lcd)
+                return True
+        
+        # Case 2: Idle timeout - check if we should sleep due to inactivity
+        elif self.power.should_sleep_idle():
+            print("[POWER] Idle timeout reached, entering sleep")
+            self.power.prepare_for_sleep(lcd)
+            self.power.enter_idle_sleep()
+            self.power.wake_from_sleep(lcd)
+            return True
+        
+        return False
+    
     def setup_buttons(self):
         """Setup button callbacks"""
         def button_a_callback(pin):
             print("[BUTTON] A pressed - Previous Track")
+            self.power.reset_activity_timer()
+            self.power.wake_from_sleep(lcd)
             self.reaper.prev_tab()
             
         def button_b_callback(pin):
             print("[BUTTON] B pressed - Play/Stop")
+            self.power.reset_activity_timer()
+            self.power.wake_from_sleep(lcd)
+            
+            # Check current state to determine action
+            time_info = self.reaper.get_play_time()
+            was_playing = time_info.get("is_playing", False)
+            
             self.reaper.toggle_play_stop()
+            
+            # If we just started playing, mark it
+            if not was_playing:
+                self.just_started_playing = True
+                self.play_start_time = time.time()
             
         def button_c_callback(pin):
             print("[BUTTON] C pressed - Next Track")
+            self.power.reset_activity_timer()
+            self.power.wake_from_sleep(lcd)
             self.reaper.next_tab()
         
         buttonA.wasPressed(button_a_callback)
@@ -283,7 +376,20 @@ class ReaperRemote:
                     print("[LOOP] Status updated successfully")
                 
                 # Update display with track info or connection info
-                self.update_track_display()
+                try:
+                    self.update_track_display()
+                except Exception as e:
+                    print(f"[DISPLAY ERROR] {e}")
+                    # Show simplified display on error
+                    lcd.setTextColor(COLOR_ERROR, COLOR_BG)
+                    lcd.setCursor(10, 100)
+                    lcd.print("Display Error")
+                
+                # Check power management (sleep if appropriate)
+                if self.check_power_management():
+                    # We just woke up from sleep, force status update
+                    self.last_status_update = 0
+                    continue
                 
                 # In simulator mode, simulate some button presses
                 if USING_SIMULATOR and loop_count % 5 == 0:
