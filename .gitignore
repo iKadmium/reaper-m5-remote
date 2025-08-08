@@ -1,5 +1,7 @@
 # Development tools and scripts
 
+config.py
+
 *.py[cod]
 __pycache__/
 *.so

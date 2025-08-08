@@ -2,12 +2,52 @@
 WiFi connection utility for M5Stack Core
 """
 
-import network
 import time
 
 class WiFiManager:
     def __init__(self):
-        self.wlan = network.WLAN(network.STA_IF)
+        try:
+            import network
+            self.wlan = network.WLAN(network.STA_IF)
+        except ImportError:
+            # Mock for simulator
+            class MockWLAN:
+                def __init__(self):
+                    self._active = False
+                    self._connected = False
+                    self._ip = None
+                
+                def active(self, state=None):
+                    if state is not None:
+                        self._active = state
+                    return self._active
+                
+                def connect(self, ssid, password):
+                    print(f"[WIFI MOCK] Attempting to connect to {ssid}...")
+                    # Simulate connection attempt
+                    import time
+                    time.sleep(0.5)  # Simulate connection delay
+                    
+                    # Simulate successful connection
+                    self._connected = True
+                    self._ip = "192.168.1.50"
+                    print(f"[WIFI MOCK] Connected to {ssid} with IP {self._ip}")
+                    return True
+                
+                def isconnected(self):
+                    return self._connected
+                
+                def disconnect(self):
+                    self._connected = False
+                    self._ip = None
+                
+                def ifconfig(self):
+                    return [self._ip, "255.255.255.0", "192.168.1.1", "8.8.8.8"]
+                
+                def scan(self):
+                    return [(b"TestWiFi", None, None, -50), (b"AnotherNet", None, None, -70)]
+            
+            self.wlan = MockWLAN()
         
     def connect(self, ssid, password, timeout=10):
         """Connect to WiFi network"""
