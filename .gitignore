@@ -1,0 +1,24 @@
+# Development tools and scripts
+
+*.py[cod]
+__pycache__/
+*.so
+
+# MicroPython compiled files
+*.mpy
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Log files
+*.log
