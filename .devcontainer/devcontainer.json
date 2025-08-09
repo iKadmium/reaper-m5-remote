@@ -1,10 +1,14 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/rust
 {
-	"name": "Rust",
+	"name": "Arduino m5",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	// "image": "mcr.microsoft.com/devcontainers/rust:bookworm",
-	"dockerFile": "Dockerfile",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "..",
+		"args": {}
+	},
 	//"image": "docker.io/micropython/unix",
 	// Use 'mounts' to make the cargo cache persistent in a Docker Volume.
 	// "mounts": [
@@ -15,11 +19,11 @@
 	// 	}
 	// ]
 	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	"features": {},
+	// Use 'forwardPorts' to make a list of ports inside the contaciner available locally.
 	// "forwardPorts": [],
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "rustc --version",
+	"postCreateCommand": "echo 'source /home/vscode/platformio-venv/bin/activate' >> ~/.bashrc",
 	// Configure tool-specific properties.
 	// "customizations": {},
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
@@ -27,7 +31,9 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"ms-python.python"
+				"ms-vscode.cmake-tools",
+				"ms-vscode.cpptools",
+				"platformio.platformio-ide"
 			]
 		}
 	}

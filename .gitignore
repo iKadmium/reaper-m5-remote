@@ -1,26 +1,5 @@
-# Development tools and scripts
-
-config.py
-
-*.py[cod]
-__pycache__/
-*.so
-
-# MicroPython compiled files
-*.mpy
-
-# IDE files
-.vscode/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.tmp
-*.bak
-
-# Log files
-*.log
+.pio
+.vscode/.browse.c_cpp.db*
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch
