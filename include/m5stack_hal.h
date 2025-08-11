@@ -101,7 +101,8 @@ namespace hal
     public:
         float getBatteryVoltage() const override
         {
-            return M5.Power.getBatteryVoltage();
+            // Note: M5Stack Power API varies by version, using getBatteryLevel as fallback
+            return M5.Power.getBatteryLevel(); // This typically returns voltage in V
         }
 
         uint8_t getBatteryPercentage() const override
@@ -202,7 +203,6 @@ namespace hal
         void flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2, const uint16_t *color_p) override
         {
             M5.Lcd.pushImage(x1, y1, x2 - x1 + 1, y2 - y1 + 1, (uint16_t *)color_p);
-            lv_disp_flush_ready(lv_disp_get_default());
         }
 
         static void lvgl_flush_cb(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
@@ -211,6 +211,7 @@ namespace hal
             {
                 instance->flush(area->x1, area->y1, area->x2, area->y2, (uint16_t *)color_p);
             }
+            lv_disp_flush_ready(disp);
         }
     };
 
@@ -283,46 +284,6 @@ namespace hal
         }
     };
 
-    class M5StackLogger : public ILogger
-    {
-    public:
-        void log(Level level, const char *tag, const char *message) override
-        {
-            const char *level_str = getLevelString(level);
-            Serial.printf("[%s] %s: %s\n", level_str, tag, message);
-        }
-
-        void logf(Level level, const char *tag, const char *format, ...) override
-        {
-            const char *level_str = getLevelString(level);
-            Serial.printf("[%s] %s: ", level_str, tag);
-
-            va_list args;
-            va_start(args, format);
-            Serial.vprintf(format, args);
-            va_end(args);
-            Serial.println();
-        }
-
-    private:
-        const char *getLevelString(Level level)
-        {
-            switch (level)
-            {
-            case DEBUG:
-                return "DEBUG";
-            case INFO:
-                return "INFO";
-            case WARN:
-                return "WARN";
-            case ERROR:
-                return "ERROR";
-            default:
-                return "UNKNOWN";
-            }
-        }
-    };
-
     class M5StackSystemHAL : public ISystemHAL
     {
     private:
@@ -330,7 +291,6 @@ namespace hal
         M5StackPowerManager power_mgr;
         M5StackDisplayManager display_mgr;
         M5StackInputManager input_mgr;
-        M5StackLogger logger;
 
         // LVGL display buffer
         static const size_t buf_size = 320 * 60;
@@ -341,11 +301,14 @@ namespace hal
         lv_indev_drv_t indev_drv;
 
     public:
+        M5StackSystemHAL()
+        {
+        }
+
         INetworkManager &getNetworkManager() override { return network_mgr; }
         IPowerManager &getPowerManager() override { return power_mgr; }
         IDisplayManager &getDisplayManager() override { return display_mgr; }
         IInputManager &getInputManager() override { return input_mgr; }
-        ILogger &getLogger() override { return logger; }
 
         void init() override
         {
@@ -373,7 +336,7 @@ namespace hal
             indev_drv.read_cb = input_read_cb;
             lv_indev_drv_register(&indev_drv);
 
-            logger.log(ILogger::INFO, "M5Stack", "System initialized");
+            Serial.println("M5Stack System initialized");
         }
 
         void update() override

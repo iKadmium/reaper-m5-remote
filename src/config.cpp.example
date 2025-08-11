@@ -1,0 +1,22 @@
+#include "config.h"
+
+// WiFi credentials - modify these for your network
+// Alternatively, you can use the #define values in config.h
+
+const char *getWiFiSSID()
+{
+    // Return your actual WiFi network name
+    return "YourWiFiNetwork";
+}
+
+const char *getWiFiPassword()
+{
+    // Return your actual WiFi password
+    return "YourWiFiPassword";
+}
+
+// You can also add other configuration functions here:
+// - API endpoints
+// - Device names
+// - Feature flags
+// etc.

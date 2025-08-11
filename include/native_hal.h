@@ -10,7 +10,12 @@
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
+#include <ctime>
 #include <curl/curl.h>
+#include <string>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include "log.h"
 
 namespace hal
 {
@@ -74,68 +79,80 @@ namespace hal
 
         bool httpGet(const char *url, std::function<void(const char *response, int status_code)> callback) override
         {
-            CURL *curl = curl_easy_init();
-            if (!curl)
-            {
-                callback(nullptr, 0);
-                return false;
-            }
+            // Make HTTP calls asynchronous to avoid blocking the UI
+            std::thread([this, url = std::string(url), callback]()
+                        {
+                CURL *curl = curl_easy_init();
+                if (!curl)
+                {
+                    callback(nullptr, 0);
+                    return;
+                }
 
-            HttpResponse response;
-            curl_easy_setopt(curl, CURLOPT_URL, url);
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+                HttpResponse response;
+                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
 
-            CURLcode res = curl_easy_perform(curl);
-            if (res == CURLE_OK)
-            {
-                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
-                callback(response.data.c_str(), response.response_code);
-            }
-            else
-            {
-                callback(nullptr, 0);
-            }
+                CURLcode res = curl_easy_perform(curl);
+                if (res == CURLE_OK)
+                {
+                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
+                    printf("[DEBUG] HTTP GET callback: status=%ld, response_len=%zu\n", response.response_code, response.data.length());
+                    callback(response.data.c_str(), response.response_code);
+                }
+                else
+                {
+                    printf("[DEBUG] HTTP GET failed: %s\n", curl_easy_strerror(res));
+                    callback(nullptr, 0);
+                }
 
-            curl_easy_cleanup(curl);
-            return res == CURLE_OK;
+                curl_easy_cleanup(curl); })
+                .detach();
+
+            return true; // Return immediately since we're async
         }
 
         bool httpPost(const char *url, const char *data, std::function<void(const char *response, int status_code)> callback) override
         {
-            CURL *curl = curl_easy_init();
-            if (!curl)
-            {
-                callback(nullptr, 0);
-                return false;
-            }
+            // Make HTTP calls asynchronous to avoid blocking the UI
+            std::thread([this, url = std::string(url), data = std::string(data), callback]()
+                        {
+                CURL *curl = curl_easy_init();
+                if (!curl)
+                {
+                    callback(nullptr, 0);
+                    return;
+                }
 
-            HttpResponse response;
-            curl_easy_setopt(curl, CURLOPT_URL, url);
-            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+                HttpResponse response;
+                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
 
-            struct curl_slist *headers = nullptr;
-            headers = curl_slist_append(headers, "Content-Type: application/json");
-            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+                struct curl_slist *headers = nullptr;
+                headers = curl_slist_append(headers, "Content-Type: application/json");
+                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-            CURLcode res = curl_easy_perform(curl);
-            if (res == CURLE_OK)
-            {
-                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
-                callback(response.data.c_str(), response.response_code);
-            }
-            else
-            {
-                callback(nullptr, 0);
-            }
+                CURLcode res = curl_easy_perform(curl);
+                if (res == CURLE_OK)
+                {
+                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
+                    callback(response.data.c_str(), response.response_code);
+                }
+                else
+                {
+                    callback(nullptr, 0);
+                }
 
-            curl_slist_free_all(headers);
-            curl_easy_cleanup(curl);
-            return res == CURLE_OK;
+                curl_slist_free_all(headers);
+                curl_easy_cleanup(curl); })
+                .detach();
+
+            return true; // Return immediately since we're async
         }
     };
 
@@ -308,7 +325,6 @@ namespace hal
         {
             if (!display_on || !texture || !renderer)
             {
-                lv_disp_flush_ready(lv_disp_get_default());
                 return;
             }
 
@@ -335,8 +351,6 @@ namespace hal
             SDL_RenderClear(renderer);
             SDL_RenderCopy(renderer, texture, nullptr, nullptr);
             SDL_RenderPresent(renderer);
-
-            lv_disp_flush_ready(lv_disp_get_default());
         }
 
         void processSDLEvents()
@@ -357,6 +371,7 @@ namespace hal
             {
                 instance->flush(area->x1, area->y1, area->x2, area->y2, (uint16_t *)color_p);
             }
+            lv_disp_flush_ready(disp);
         }
     };
 
@@ -429,46 +444,6 @@ namespace hal
         }
     };
 
-    class NativeLogger : public ILogger
-    {
-    public:
-        void log(Level level, const char *tag, const char *message) override
-        {
-            const char *level_str = getLevelString(level);
-            printf("[%s] %s: %s\n", level_str, tag, message);
-        }
-
-        void logf(Level level, const char *tag, const char *format, ...) override
-        {
-            const char *level_str = getLevelString(level);
-            printf("[%s] %s: ", level_str, tag);
-
-            va_list args;
-            va_start(args, format);
-            vprintf(format, args);
-            va_end(args);
-            printf("\n");
-        }
-
-    private:
-        const char *getLevelString(Level level)
-        {
-            switch (level)
-            {
-            case DEBUG:
-                return "DEBUG";
-            case INFO:
-                return "INFO";
-            case WARN:
-                return "WARN";
-            case ERROR:
-                return "ERROR";
-            default:
-                return "UNKNOWN";
-            }
-        }
-    };
-
     class NativeSystemHAL : public ISystemHAL
     {
     private:
@@ -476,7 +451,6 @@ namespace hal
         NativePowerManager power_mgr;
         NativeDisplayManager display_mgr;
         NativeInputManager input_mgr;
-        NativeLogger logger;
 
         std::chrono::steady_clock::time_point start_time;
 
@@ -493,16 +467,24 @@ namespace hal
         IPowerManager &getPowerManager() override { return power_mgr; }
         IDisplayManager &getDisplayManager() override { return display_mgr; }
         IInputManager &getInputManager() override { return input_mgr; }
-        ILogger &getLogger() override { return logger; }
 
         void init() override
         {
             start_time = std::chrono::steady_clock::now();
 
+            // Initialize logging with colored log4j-style format
+            auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+            console_sink->set_pattern("[%^%l%$] [%Y-%m-%d %H:%M:%S.%e] %@ %! - %v");
+
+            auto logger = std::make_shared<spdlog::logger>("default", console_sink);
+            logger->set_level(spdlog::level::debug);
+            spdlog::set_default_logger(logger);
+            spdlog::set_level(spdlog::level::debug);
+
             // Initialize SDL and display
             if (!display_mgr.initSDL())
             {
-                logger.log(ILogger::ERROR, "Native", "Failed to initialize SDL");
+                LOG_ERROR("Native", "Failed to initialize SDL");
                 exit(1);
             }
 
@@ -526,8 +508,8 @@ namespace hal
             indev_drv.read_cb = input_read_cb;
             lv_indev_drv_register(&indev_drv);
 
-            logger.log(ILogger::INFO, "Native", "System initialized");
-            logger.log(ILogger::INFO, "Native", "Use keys A/1, B/2, C/3 for buttons or click with mouse");
+            LOG_INFO("Native", "System initialized");
+            LOG_INFO("Native", "Use keys A/1, B/2, C/3 for buttons or click with mouse");
         }
 
         void update() override
@@ -567,11 +549,6 @@ namespace hal
             }
         }
     };
-
-    // Static member definitions
-    NativeDisplayManager *NativeDisplayManager::instance = nullptr;
-    lv_color_t NativeSystemHAL::buf_1[NativeSystemHAL::buf_size];
-    lv_color_t NativeSystemHAL::buf_2[NativeSystemHAL::buf_size];
 
 } // namespace hal
 

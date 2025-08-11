@@ -84,23 +84,6 @@ namespace hal
         virtual void update() = 0;
     };
 
-    // Logger interface abstraction
-    class ILogger
-    {
-    public:
-        enum Level
-        {
-            DEBUG,
-            INFO,
-            WARN,
-            ERROR
-        };
-
-        virtual ~ILogger() = default;
-        virtual void log(Level level, const char *tag, const char *message) = 0;
-        virtual void logf(Level level, const char *tag, const char *format, ...) = 0;
-    };
-
     // System abstraction - combines all interfaces
     class ISystemHAL
     {
@@ -111,7 +94,6 @@ namespace hal
         virtual IPowerManager &getPowerManager() = 0;
         virtual IDisplayManager &getDisplayManager() = 0;
         virtual IInputManager &getInputManager() = 0;
-        virtual ILogger &getLogger() = 0;
 
         // System lifecycle
         virtual void init() = 0;

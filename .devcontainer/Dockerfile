@@ -8,7 +8,8 @@ RUN sudo apt-get update && sudo apt-get install -y \
   libwayland-dev \
   python3 \
   python3-pip \
-  python3-venv
+  python3-venv \
+  libspdlog-dev
 
 # Create a dedicated virtual environment for PlatformIO
 
