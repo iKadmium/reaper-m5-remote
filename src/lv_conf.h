@@ -37,7 +37,7 @@
 #ifdef NATIVE_BUILD
 #define LV_MEM_SIZE (128U * 1024U) /*[bytes]*/
 #else
-#define LV_MEM_SIZE (48U * 1024U) /*[bytes]*/
+#define LV_MEM_SIZE (16U * 1024U) /*[bytes]*/ /* Reduced to match platformio.ini setting */
 #endif
 
 /*Set an address for the memory pool instead of allocating it as a normal array. Can be in external SRAM too.*/
@@ -227,8 +227,8 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h"*/
 /*Add a custom handler when assert happens e.g. to restart the MCU*/
 #define LV_ASSERT_HANDLER_INCLUDE <stdint.h>
 #define LV_ASSERT_HANDLER \
-    while (1)             \
-        ; /*Halt by default*/
+  while (1)               \
+    ; /*Halt by default*/
 
 /*-------------
  * Others

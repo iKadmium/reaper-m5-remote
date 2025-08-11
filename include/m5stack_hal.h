@@ -272,10 +272,9 @@ namespace hal
         M5StackDisplayManager display_mgr;
         M5StackInputManager input_mgr;
 
-        // LVGL display buffer
-        static const size_t buf_size = 320 * 60;
+        // LVGL display buffer - single buffer to save memory
+        static const size_t buf_size = 320 * 15; // Reduced from 60 to 15 lines
         static lv_color_t buf_1[buf_size];
-        static lv_color_t buf_2[buf_size];
         lv_disp_draw_buf_t draw_buf;
         lv_disp_drv_t disp_drv;
         lv_indev_drv_t indev_drv;
@@ -299,8 +298,8 @@ namespace hal
             // Initialize LVGL
             lv_init();
 
-            // Initialize display buffer
-            lv_disp_draw_buf_init(&draw_buf, buf_1, buf_2, buf_size);
+            // Initialize display buffer (single buffer to save memory)
+            lv_disp_draw_buf_init(&draw_buf, buf_1, nullptr, buf_size);
 
             // Initialize display driver
             lv_disp_drv_init(&disp_drv);
@@ -370,7 +369,6 @@ namespace hal
     // Static member definitions
     M5StackDisplayManager *M5StackDisplayManager::instance = nullptr;
     lv_color_t M5StackSystemHAL::buf_1[M5StackSystemHAL::buf_size];
-    lv_color_t M5StackSystemHAL::buf_2[M5StackSystemHAL::buf_size];
 
 } // namespace hal
 

@@ -93,16 +93,16 @@ namespace hal
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, &curl_response);
             curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
             curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
-            
+
             // Force fresh connections to prevent connection pooling issues
             curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1L);
             curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 1L);
-            
+
             // Disable keep-alive to ensure connections are properly closed
             struct curl_slist *headers = nullptr;
             headers = curl_slist_append(headers, "Connection: close");
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-            
+
             // Add user agent to identify requests
             curl_easy_setopt(curl, CURLOPT_USERAGENT, "Reaper-M5-Remote/1.0");
 

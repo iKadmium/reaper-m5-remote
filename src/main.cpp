@@ -187,7 +187,7 @@ void loop()
     // Periodic transport updates when playing or in "are you sure" mode
     static unsigned long last_transport_update = 0;
     const unsigned long TRANSPORT_UPDATE_INTERVAL = 1000; // 1 second
-    
+
     UIState current_ui_state = g_ui->getCurrentUIState();
     if ((current_ui_state == UIState::PLAYING || current_ui_state == UIState::ARE_YOU_SURE) &&
         (current_time - last_transport_update >= TRANSPORT_UPDATE_INTERVAL))
