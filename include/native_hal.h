@@ -77,82 +77,37 @@ namespace hal
             return ip_address.c_str();
         }
 
-        bool httpGet(const char *url, std::function<void(const char *response, int status_code)> callback) override
+        bool httpGetBlocking(const char *url, std::string &response, int &status_code) override
         {
-            // Make HTTP calls asynchronous to avoid blocking the UI
-            std::thread([this, url = std::string(url), callback]()
-                        {
-                CURL *curl = curl_easy_init();
-                if (!curl)
-                {
-                    callback(nullptr, 0);
-                    return;
-                }
+            CURL *curl = curl_easy_init();
+            if (!curl)
+            {
+                status_code = 0;
+                response.clear();
+                return false;
+            }
 
-                HttpResponse response;
-                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+            HttpResponse curl_response;
+            curl_easy_setopt(curl, CURLOPT_URL, url);
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &curl_response);
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
 
-                CURLcode res = curl_easy_perform(curl);
-                if (res == CURLE_OK)
-                {
-                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
-                    printf("[DEBUG] HTTP GET callback: status=%ld, response_len=%zu\n", response.response_code, response.data.length());
-                    callback(response.data.c_str(), response.response_code);
-                }
-                else
-                {
-                    printf("[DEBUG] HTTP GET failed: %s\n", curl_easy_strerror(res));
-                    callback(nullptr, 0);
-                }
+            CURLcode res = curl_easy_perform(curl);
+            if (res == CURLE_OK)
+            {
+                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &curl_response.response_code);
+                response = curl_response.data;
+                status_code = curl_response.response_code;
+            }
+            else
+            {
+                response.clear();
+                status_code = 0;
+            }
 
-                curl_easy_cleanup(curl); })
-                .detach();
-
-            return true; // Return immediately since we're async
-        }
-
-        bool httpPost(const char *url, const char *data, std::function<void(const char *response, int status_code)> callback) override
-        {
-            // Make HTTP calls asynchronous to avoid blocking the UI
-            std::thread([this, url = std::string(url), data = std::string(data), callback]()
-                        {
-                CURL *curl = curl_easy_init();
-                if (!curl)
-                {
-                    callback(nullptr, 0);
-                    return;
-                }
-
-                HttpResponse response;
-                curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
-                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-                curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-
-                struct curl_slist *headers = nullptr;
-                headers = curl_slist_append(headers, "Content-Type: application/json");
-                curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-                CURLcode res = curl_easy_perform(curl);
-                if (res == CURLE_OK)
-                {
-                    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
-                    callback(response.data.c_str(), response.response_code);
-                }
-                else
-                {
-                    callback(nullptr, 0);
-                }
-
-                curl_slist_free_all(headers);
-                curl_easy_cleanup(curl); })
-                .detach();
-
-            return true; // Return immediately since we're async
+            curl_easy_cleanup(curl);
+            return res == CURLE_OK && status_code > 0;
         }
     };
 

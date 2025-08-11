@@ -1,13 +1,19 @@
 #pragma once
 
-#include "reaper_client.h"
+#include "reaper_types.h"
 #include "ui_manager.h"
+
+// Forward declaration to avoid circular dependency
+namespace http
+{
+    class HttpJobManager;
+}
 
 class StateManager
 {
 private:
-    reaper::ReaperClient *reaper_client;
     UIManager *ui_manager;
+    http::HttpJobManager *http_job_manager;
 
     // Current state
     reaper::ReaperState current_reaper_state;
@@ -28,10 +34,9 @@ private:
     // Helper methods
     unsigned long getReaperStateInterval() const;
     unsigned long getTransportInterval() const;
-    void updateTransportStateFromReaper();
 
 public:
-    StateManager(reaper::ReaperClient *reaper, UIManager *ui);
+    StateManager(http::HttpJobManager *http_manager, UIManager *ui);
     ~StateManager() = default;
 
     // Update methods
@@ -41,6 +46,13 @@ public:
     // State accessors
     const reaper::ReaperState &getReaperState() const { return current_reaper_state; }
     const reaper::TransportState &getTransportState() const { return current_transport_state; }
+
+    // State mutators for HTTP job results
+    void updateReaperState(const reaper::ReaperState &state) { current_reaper_state = state; }
+    void updateTransportState(const reaper::TransportState &state) { current_transport_state = state; }
+
+    // Status flag control
+    void setHaveReaperState(bool have) { have_reaper_state = have; }
     reaper::ReaperState &getReaperState() { return current_reaper_state; }
     reaper::TransportState &getTransportState() { return current_transport_state; }
 

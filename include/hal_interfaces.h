@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <functional>
+#include <string>
 
 namespace hal
 {
@@ -18,9 +19,8 @@ namespace hal
         virtual bool isConnected() const = 0;
         virtual const char *getIP() const = 0;
 
-        // HTTP client functionality
-        virtual bool httpGet(const char *url, std::function<void(const char *response, int status_code)> callback) = 0;
-        virtual bool httpPost(const char *url, const char *data, std::function<void(const char *response, int status_code)> callback) = 0;
+        // HTTP client functionality (blocking only)
+        virtual bool httpGetBlocking(const char *url, std::string &response, int &status_code) = 0;
     };
 
     // Power management interface abstraction

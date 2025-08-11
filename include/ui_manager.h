@@ -3,7 +3,7 @@
 #include <lvgl.h>
 #include <string>
 #include "hal_interfaces.h"
-#include "reaper_client.h"
+#include "reaper_types.h"
 
 enum class UIState
 {
@@ -23,6 +23,7 @@ private:
     lv_obj_t *play_icon_label = nullptr;
     lv_obj_t *tab_name_label = nullptr;
     lv_obj_t *time_label = nullptr;
+    lv_obj_t *are_you_sure_label = nullptr;
     lv_obj_t *btn1_label = nullptr;
     lv_obj_t *btn2_label = nullptr;
     lv_obj_t *btn3_label = nullptr;

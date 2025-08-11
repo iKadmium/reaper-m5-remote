@@ -55,6 +55,13 @@ void UIManager::createUI()
     lv_obj_set_style_text_color(time_label, lv_color_hex(0x00FFFF), 0);
     lv_obj_align(time_label, LV_ALIGN_TOP_LEFT, 5, 80);
 
+    // Row 4.5: "Are you sure?" message (centered, initially hidden)
+    are_you_sure_label = lv_label_create(scr);
+    lv_label_set_text(are_you_sure_label, "Are you sure?");
+    lv_obj_set_style_text_color(are_you_sure_label, lv_color_hex(0xFFFF00), 0);
+    lv_obj_align(are_you_sure_label, LV_ALIGN_CENTER, 0, 10);
+    lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Initially hidden
+
     // Row 5: Button functions (aligned over button positions)
     btn1_label = lv_label_create(scr);
     lv_label_set_text(btn1_label, "PREV");
@@ -257,7 +264,7 @@ void UIManager::updateTransportUI(const reaper::TransportState &transport_state,
 
 void UIManager::updateButtonLabelsUI()
 {
-    if (!btn1_label || !btn2_label || !btn3_label)
+    if (!btn1_label || !btn2_label || !btn3_label || !are_you_sure_label)
         return;
 
     static UIState last_ui_state = UIState::STOPPED;
@@ -275,23 +282,27 @@ void UIManager::updateButtonLabelsUI()
         lv_label_set_text(btn1_label, "PREV");
         lv_label_set_text(btn2_label, "PLAY");
         lv_label_set_text(btn3_label, "NEXT");
+        lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Hide "Are you sure?"
         break;
     case UIState::PLAYING:
         lv_label_set_text(btn1_label, "---");
         lv_label_set_text(btn2_label, "STOP?");
         lv_label_set_text(btn3_label, "---");
+        lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Hide "Are you sure?"
         break;
     case UIState::ARE_YOU_SURE:
         lv_label_set_text(btn1_label, "STOP");
         lv_label_set_text(btn2_label, "CANCEL");
         lv_label_set_text(btn3_label, "CANCEL");
+        lv_obj_clear_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Show "Are you sure?"
         break;
     }
 
-    // Force redraw of all button labels
+    // Force redraw of all button labels and the "Are you sure?" label
     lv_obj_invalidate(btn1_label);
     lv_obj_invalidate(btn2_label);
     lv_obj_invalidate(btn3_label);
+    lv_obj_invalidate(are_you_sure_label);
 }
 
 void UIManager::updatePeriodicUI(unsigned long current_time)

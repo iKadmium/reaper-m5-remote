@@ -1,8 +1,10 @@
 #include "button_handler.h"
+#include "http_job_manager.h"
 #include "log.h"
 
-ButtonHandler::ButtonHandler(hal::IInputManager *input, reaper::ReaperClient *reaper, UIManager *ui)
-    : input_mgr(input), reaper_client(reaper), ui_manager(ui), current_reaper_state(nullptr), current_transport_state(nullptr)
+ButtonHandler::ButtonHandler(hal::IInputManager *input, http::HttpJobManager *http_manager, UIManager *ui)
+    : input_mgr(input), http_job_manager(http_manager), ui_manager(ui),
+      current_reaper_state(nullptr), current_transport_state(nullptr)
 {
 }
 
@@ -14,7 +16,7 @@ void ButtonHandler::setStateReferences(reaper::ReaperState *reaper_state, reaper
 
 void ButtonHandler::handleButtonPress()
 {
-    if (!input_mgr || !reaper_client || !ui_manager)
+    if (!input_mgr || !http_job_manager || !ui_manager)
         return;
 
     // Check for button presses
@@ -92,105 +94,21 @@ void ButtonHandler::handlePreviousTab()
 {
     LOG_INFO("UI", "Previous tab");
     awaiting_state_update = true;
-    reaper_client->previousTab();
-
-    if (reaper_client->hasScriptId())
-    {
-        reaper_client->getCurrentReaperState([this](const reaper::ReaperState &state)
-                                             {
-            if (current_reaper_state) {
-                *current_reaper_state = state;
-            }
-            if (current_transport_state) {
-                *current_transport_state = state.transport;
-            }
-            awaiting_state_update = false;
-            if (state.success) {
-                LOG_TRACE("UI", "Tab state updated after previous");
-                ui_manager->updateReaperStateUI(state);
-                ui_manager->updateTransportUI(state.transport, state);
-
-                // Update UI state based on transport state
-                if (ui_manager->getCurrentUIState() != UIState::ARE_YOU_SURE) {
-                    if (state.transport.play_state == 0) {
-                        ui_manager->setUIState(UIState::STOPPED);
-                    } else if (state.transport.play_state == 1) {
-                        ui_manager->setUIState(UIState::PLAYING);
-                    }
-                    LOG_INFO("UI", "Tab changed - transport state: {}, UI state: {}", 
-                        state.transport.play_state,
-                        ui_manager->getCurrentUIState() == UIState::STOPPED ? "STOPPED" : "PLAYING");
-                }
-            } });
-    }
+    http_job_manager->submitChangeTabJob(http::TabDirection::PREVIOUS);
 }
 
 void ButtonHandler::handlePlay()
 {
     LOG_INFO("UI", "Play");
     awaiting_transport_update = true;
-    reaper_client->play();
-
-    reaper_client->getTransportState([this](const reaper::TransportState &state)
-                                     {
-        if (current_transport_state) {
-            *current_transport_state = state;
-        }
-        awaiting_transport_update = false;
-        if (state.success) {
-            LOG_TRACE("UI", "Transport state updated after play");
-            if (state.play_state == 1) {
-                ui_manager->setUIState(UIState::PLAYING);
-                LOG_INFO("UI", "UI state changed to PLAYING");
-            } else {
-                LOG_WARNING("UI", "Expected playing state but got {}", state.play_state);
-            }
-        } else {
-            LOG_ERROR("UI", "Failed to get transport state after play command");
-        } });
+    http_job_manager->submitChangePlaystateJob(http::PlayAction::PLAY);
 }
 
 void ButtonHandler::handleNextTab()
 {
     LOG_INFO("UI", "Next tab");
     awaiting_state_update = true;
-    awaiting_transport_update = true;
-    reaper_client->nextTab();
-
-    if (reaper_client->hasScriptId())
-    {
-        reaper_client->getCurrentReaperState([this](const reaper::ReaperState &state)
-                                             {
-            if (current_reaper_state) {
-                *current_reaper_state = state;
-            }
-            if (current_transport_state) {
-                *current_transport_state = state.transport;
-            }
-            awaiting_state_update = false;
-            if (state.success) {
-                LOG_TRACE("UI", "Tab state updated after next");
-                ui_manager->updateReaperStateUI(state);
-                ui_manager->updateTransportUI(state.transport, state);
-
-                if (current_transport_state) {
-                    *current_transport_state = state.transport;
-                }
-                awaiting_transport_update = false;
-
-                // Update UI state based on transport state
-                if (ui_manager->getCurrentUIState() != UIState::ARE_YOU_SURE) {
-                    if (state.transport.play_state == 0) {
-                        ui_manager->setUIState(UIState::STOPPED);
-                    } else if (state.transport.play_state == 1) {
-                        ui_manager->setUIState(UIState::PLAYING);
-                    }
-                    LOG_INFO("UI", "Tab changed - transport state: {}, UI state: {}", 
-                        state.transport.play_state,
-                        ui_manager->getCurrentUIState() == UIState::STOPPED ? "STOPPED" : "PLAYING");
-                }
-            } });
-    }
+    http_job_manager->submitChangeTabJob(http::TabDirection::NEXT);
 }
 
 void ButtonHandler::handleStopConfirmation()
@@ -203,25 +121,7 @@ void ButtonHandler::handleStop()
 {
     LOG_INFO("UI", "Stop confirmed");
     awaiting_transport_update = true;
-    reaper_client->stop();
-
-    reaper_client->getTransportState([this](const reaper::TransportState &state)
-                                     {
-        if (current_transport_state) {
-            *current_transport_state = state;
-        }
-        awaiting_transport_update = false;
-        if (state.success) {
-            LOG_TRACE("UI", "Transport state updated after stop");
-            if (state.play_state == 0) {
-                ui_manager->setUIState(UIState::STOPPED);
-                LOG_INFO("UI", "UI state changed to STOPPED");
-            } else {
-                LOG_WARNING("UI", "Expected stopped state but got {}", state.play_state);
-            }
-        } else {
-            LOG_ERROR("UI", "Failed to get transport state after stop command");
-        } });
+    http_job_manager->submitChangePlaystateJob(http::PlayAction::STOP);
 }
 
 void ButtonHandler::handleCancel()

@@ -56,43 +56,23 @@ namespace hal
             return ip_address.c_str();
         }
 
-        bool httpGet(const char *url, std::function<void(const char *response, int status_code)> callback) override
+        bool httpGetBlocking(const char *url, std::string &response, int &status_code) override
         {
             http.begin(url);
-            int httpCode = http.GET();
+            status_code = http.GET();
 
-            if (httpCode > 0)
+            if (status_code > 0)
             {
                 String payload = http.getString();
-                callback(payload.c_str(), httpCode);
+                response = payload.c_str();
             }
             else
             {
-                callback(nullptr, httpCode);
+                response.clear();
             }
 
             http.end();
-            return httpCode > 0;
-        }
-
-        bool httpPost(const char *url, const char *data, std::function<void(const char *response, int status_code)> callback) override
-        {
-            http.begin(url);
-            http.addHeader("Content-Type", "application/json");
-            int httpCode = http.POST(data);
-
-            if (httpCode > 0)
-            {
-                String payload = http.getString();
-                callback(payload.c_str(), httpCode);
-            }
-            else
-            {
-                callback(nullptr, httpCode);
-            }
-
-            http.end();
-            return httpCode > 0;
+            return status_code > 0;
         }
     };
 
