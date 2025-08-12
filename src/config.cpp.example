@@ -15,6 +15,19 @@ const char *getWiFiPassword()
     return "YourWiFiPassword";
 }
 
+// Reaper server configuration - modify these for your setup
+const char *getReaperServer()
+{
+    // Return your Reaper server IP address
+    return "some.reaper.host";
+}
+
+int getReaperPort()
+{
+    // Return your Reaper server port
+    return 8080;
+}
+
 // You can also add other configuration functions here:
 // - API endpoints
 // - Device names
