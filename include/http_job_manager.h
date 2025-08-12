@@ -1,7 +1,7 @@
 #pragma once
 
 #include "hal_interfaces.h"
-#include "reaper_types.h"
+#include "http_jobs.h"
 #include <string>
 #include <vector>
 #include <memory>
@@ -22,182 +22,21 @@
 
 namespace http
 {
-    // Forward declarations
-    class HttpJob;
-    class HttpJobResult;
-
-    // Result type enumeration for type identification without RTTI
-    enum class ResultType
-    {
-        CHANGE_TAB,
-        CHANGE_PLAYSTATE,
-        GET_STATUS,
-        GET_SCRIPT_ACTION_ID,
-        GET_TRANSPORT
-    };
-
-    // Base class for HTTP job results
-    class HttpJobResult
-    {
-    public:
-        uint32_t job_id;
-        bool success;
-        uint32_t timestamp;
-        ResultType result_type;
-
-        HttpJobResult(uint32_t id, ResultType type) : job_id(id), success(false), timestamp(0), result_type(type) {}
-        virtual ~HttpJobResult() = default;
-    };
-
-    // Base class for HTTP jobs
-    class HttpJob
-    {
-    public:
-        uint32_t job_id;
-        uint32_t timestamp;
-
-        HttpJob(uint32_t id) : job_id(id), timestamp(0) {}
-        virtual ~HttpJob() = default;
-
-        // Pure virtual method to execute the job and return the result
-        virtual std::unique_ptr<HttpJobResult> execute(hal::INetworkManager *network_mgr, const std::string &base_url) = 0;
-        virtual const char *getJobTypeName() const = 0;
-    };
-
-    // Change Tab Job and Result
-    enum class TabDirection
-    {
-        NEXT,
-        PREVIOUS
-    };
-
-    class ChangeTabResult : public HttpJobResult
-    {
-    public:
-        reaper::ReaperState reaper_state;
-        reaper::TransportState transport_state;
-
-        ChangeTabResult(uint32_t id) : HttpJobResult(id, ResultType::CHANGE_TAB)
-        {
-            reaper_state = reaper::ReaperState{};
-            transport_state = reaper::TransportState{};
-        }
-    };
-
-    class ChangeTabJob : public HttpJob
-    {
-    private:
-        TabDirection direction;
-        std::string script_action_id;
-
-    public:
-        ChangeTabJob(uint32_t id, TabDirection dir, const std::string &script_id)
-            : HttpJob(id), direction(dir), script_action_id(script_id) {}
-
-        std::unique_ptr<HttpJobResult> execute(hal::INetworkManager *network_mgr, const std::string &base_url) override;
-        const char *getJobTypeName() const override { return "ChangeTab"; }
-    };
-
-    // Change Playstate Job and Result
-    enum class PlayAction
-    {
-        PLAY,
-        STOP
-    };
-
-    class ChangePlaystateResult : public HttpJobResult
-    {
-    public:
-        reaper::TransportState transport_state;
-
-        ChangePlaystateResult(uint32_t id) : HttpJobResult(id, ResultType::CHANGE_PLAYSTATE)
-        {
-            transport_state = reaper::TransportState{};
-        }
-    };
-
-    class ChangePlaystateJob : public HttpJob
-    {
-    private:
-        PlayAction action;
-
-    public:
-        ChangePlaystateJob(uint32_t id, PlayAction act) : HttpJob(id), action(act) {}
-
-        std::unique_ptr<HttpJobResult> execute(hal::INetworkManager *network_mgr, const std::string &base_url) override;
-        const char *getJobTypeName() const override { return "ChangePlaystate"; }
-    };
-
-    // Get Status Job and Result
-    class GetStatusResult : public HttpJobResult
-    {
-    public:
-        reaper::ReaperState reaper_state;
-        reaper::TransportState transport_state;
-
-        GetStatusResult(uint32_t id) : HttpJobResult(id, ResultType::GET_STATUS)
-        {
-            reaper_state = reaper::ReaperState{};
-            transport_state = reaper::TransportState{};
-        }
-    };
-
-    class GetScriptActionIdResult : public HttpJobResult
-    {
-    public:
-        std::string script_action_id;
-
-        GetScriptActionIdResult(uint32_t id) : HttpJobResult(id, ResultType::GET_SCRIPT_ACTION_ID) {}
-    };
-
-    class GetTransportResult : public HttpJobResult
-    {
-    public:
-        reaper::TransportState transport_state;
-
-        GetTransportResult(uint32_t id) : HttpJobResult(id, ResultType::GET_TRANSPORT)
-        {
-            transport_state = reaper::TransportState{};
-        }
-    };
-
-    class GetStatusJob : public HttpJob
-    {
-    private:
-        std::string script_action_id;
-
-    public:
-        GetStatusJob(uint32_t id, const std::string &script_id)
-            : HttpJob(id), script_action_id(script_id) {}
-
-        std::unique_ptr<HttpJobResult> execute(hal::INetworkManager *network_mgr, const std::string &base_url) override;
-        const char *getJobTypeName() const override { return "GetStatus"; }
-    };
-
-    class GetScriptActionIdJob : public HttpJob
-    {
-    public:
-        GetScriptActionIdJob(uint32_t id) : HttpJob(id) {}
-
-        std::unique_ptr<HttpJobResult> execute(hal::INetworkManager *network_mgr, const std::string &base_url) override;
-        const char *getJobTypeName() const override { return "GetScriptActionId"; }
-    };
-
-    class GetTransportJob : public HttpJob
-    {
-    public:
-        GetTransportJob(uint32_t id) : HttpJob(id) {}
-
-        std::unique_ptr<HttpJobResult> execute(hal::INetworkManager *network_mgr, const std::string &base_url) override;
-        const char *getJobTypeName() const override { return "GetTransport"; }
-    };
-
     class HttpJobManager
     {
     private:
         hal::ISystemHAL *system_hal;
+        NetworkManager *network_manager;
         std::string base_url;
         std::string script_action_id; // ReaperSetlist script action ID
+
+        // Connection state tracking
+        std::atomic<bool> wifi_connected;
+        std::atomic<uint32_t> last_wifi_attempt;
+        std::atomic<uint32_t> script_action_id_attempts;
+        static const uint32_t WIFI_RETRY_INTERVAL_MS = 10000;     // 10 seconds
+        static const uint32_t SCRIPT_ID_RETRY_INTERVAL_MS = 5000; // 5 seconds
+        static const uint32_t MAX_SCRIPT_ID_ATTEMPTS = 5;
 
         std::atomic<uint32_t> next_job_id;
         bool worker_running;
@@ -233,15 +72,21 @@ namespace http
         // Worker thread sends results to main thread
         void sendResult(std::unique_ptr<HttpJobResult> result);
 
-    public:
-        HttpJobManager(hal::ISystemHAL *system, const std::string &reaper_base_url);
-        ~HttpJobManager();
-
-        // Lifecycle
-        bool initialize();
+        // Internal shutdown logic (called from destructor)
         void shutdown();
 
+    public:
+        HttpJobManager(hal::ISystemHAL *system, NetworkManager *network, const std::string &reaper_base_url);
+        ~HttpJobManager();
+
+        // Non-copyable, non-movable (RAII resource management)
+        HttpJobManager(const HttpJobManager &) = delete;
+        HttpJobManager &operator=(const HttpJobManager &) = delete;
+        HttpJobManager(HttpJobManager &&) = delete;
+        HttpJobManager &operator=(HttpJobManager &&) = delete;
+
         // Job submission - returns job ID, no callbacks needed
+        uint32_t submitWiFiConnectJob();
         uint32_t submitChangeTabJob(TabDirection direction);
         uint32_t submitChangePlaystateJob(PlayAction action);
         uint32_t submitGetStatusJob();
@@ -251,8 +96,16 @@ namespace http
         // Result processing (call from main thread) - returns ownership of results
         std::vector<std::unique_ptr<HttpJobResult>> processResults();
 
+        // Connection management
+        bool isWiFiConnected() const { return wifi_connected.load(); }
+        void checkAndRetryConnections(uint32_t current_time);
+
         // Script action ID management
-        void setScriptActionId(const std::string &id) { script_action_id = id; }
+        void setScriptActionId(const std::string &id)
+        {
+            script_action_id = id;
+            script_action_id_attempts.store(0); // Reset attempts when successful
+        }
         const std::string &getScriptActionId() const { return script_action_id; }
 
         // Status

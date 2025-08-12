@@ -34,10 +34,13 @@
 #define LV_MEM_CUSTOM 0
 #if LV_MEM_CUSTOM == 0
 /*Size of the memory available for `lv_mem_alloc()` in bytes (>= 2kB)*/
+/*Note: LV_MEM_SIZE is defined in platformio.ini build flags for environment-specific values*/
+#ifndef LV_MEM_SIZE
 #ifdef NATIVE_BUILD
 #define LV_MEM_SIZE (128U * 1024U) /*[bytes]*/
 #else
-#define LV_MEM_SIZE (16U * 1024U) /*[bytes]*/ /* Reduced to match platformio.ini setting */
+#define LV_MEM_SIZE (16U * 1024U) /*[bytes]*/
+#endif
 #endif
 
 /*Set an address for the memory pool instead of allocating it as a normal array. Can be in external SRAM too.*/
@@ -71,8 +74,8 @@
 #define LV_TICK_CUSTOM 1
 #if LV_TICK_CUSTOM
 #ifdef NATIVE_BUILD
-#define LV_TICK_CUSTOM_INCLUDE <chrono>
-#define LV_TICK_CUSTOM_SYS_TIME_EXPR (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count())
+#define LV_TICK_CUSTOM_INCLUDE <sys/time.h>
+#define LV_TICK_CUSTOM_SYS_TIME_EXPR (({struct timeval tv; gettimeofday(&tv, NULL); (tv.tv_sec * 1000LL + tv.tv_usec / 1000); }))
 #else
 #define LV_TICK_CUSTOM_INCLUDE "Arduino.h"      /*Header for the system time function*/
 #define LV_TICK_CUSTOM_SYS_TIME_EXPR (millis()) /*Expression evaluating to current system time in ms*/
@@ -167,7 +170,7 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h"*/
 
 /*Use SDL renderer API*/
 #ifdef NATIVE_BUILD
-#define LV_USE_GPU_SDL 1
+#define LV_USE_GPU_SDL 0
 #if LV_USE_GPU_SDL
 #define LV_GPU_SDL_INCLUDE_PATH <SDL2/SDL.h>
 /*Texture cache size, 8MB by default*/
@@ -184,7 +187,10 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h"*/
  *-----------*/
 
 /*Enable the log module*/
+/*Note: LV_USE_LOG is defined in platformio.ini build flags for environment-specific values*/
+#ifndef LV_USE_LOG
 #define LV_USE_LOG 1
+#endif
 #if LV_USE_LOG
 
 /*How important log should be added:
@@ -235,14 +241,14 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h"*/
  *-----------*/
 
 /*1: Show CPU usage and FPS count*/
-#define LV_USE_PERF_MONITOR 1
+#define LV_USE_PERF_MONITOR 0
 #if LV_USE_PERF_MONITOR
 #define LV_USE_PERF_MONITOR_POS LV_ALIGN_TOP_RIGHT
 #endif
 
 /*1: Show the used memory and the memory fragmentation
  * Requires LV_MEM_CUSTOM = 0*/
-#define LV_USE_MEM_MONITOR 1
+#define LV_USE_MEM_MONITOR 0
 #if LV_USE_MEM_MONITOR
 #define LV_USE_MEM_MONITOR_POS LV_ALIGN_TOP_LEFT
 #endif
@@ -316,15 +322,16 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h"*/
  *===================*/
 
 /*Montserrat fonts with various styles and sizes*/
+// was 14
 #define LV_FONT_MONTSERRAT_8 0
 #define LV_FONT_MONTSERRAT_10 0
 #define LV_FONT_MONTSERRAT_12 0
-#define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_MONTSERRAT_14 0
 #define LV_FONT_MONTSERRAT_16 0
 #define LV_FONT_MONTSERRAT_18 0
 #define LV_FONT_MONTSERRAT_20 0
 #define LV_FONT_MONTSERRAT_22 0
-#define LV_FONT_MONTSERRAT_24 0
+#define LV_FONT_MONTSERRAT_24 1
 #define LV_FONT_MONTSERRAT_26 0
 #define LV_FONT_MONTSERRAT_28 0
 #define LV_FONT_MONTSERRAT_30 0
@@ -354,7 +361,8 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h"*/
 #define LV_FONT_CUSTOM_DECLARE
 
 /*Always set a default font*/
-#define LV_FONT_DEFAULT &lv_font_montserrat_14
+// #define LV_FONT_DEFAULT &lv_font_montserrat_14
+#define LV_FONT_DEFAULT &lv_font_montserrat_24
 
 /*Enable handling large font and/or fonts with a lot of characters.
  *The limit depends on the font size, font face and bpp.

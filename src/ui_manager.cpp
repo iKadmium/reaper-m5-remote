@@ -12,86 +12,97 @@ void UIManager::createUI()
     lv_obj_t *scr = lv_scr_act();
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
 
-    // Get screen dimensions
-    lv_coord_t screen_width = lv_obj_get_width(scr);
-    lv_coord_t screen_height = lv_obj_get_height(scr);
+    // Set up main layout as vertical flex container with space between items
+    lv_obj_set_layout(scr, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(scr, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(scr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(scr, 5, 0);
 
-    // Row 1: WiFi status, battery icon, battery percentage (right-aligned)
-    wifi_status_label = lv_label_create(scr);
-    lv_label_set_text(wifi_status_label, "WiFi");
-    lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0x00FF00), 0);
-    lv_obj_align(wifi_status_label, LV_ALIGN_TOP_RIGHT, -80, 5);
+    // Row 1: Status bar container (WiFi + Battery)
+    lv_obj_t *status_row = lv_obj_create(scr);
+    lv_obj_set_size(status_row, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(status_row, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(status_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(status_row, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(status_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(status_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(status_row, 0, 0);
+    lv_obj_set_style_pad_gap(status_row, 10, 0);
 
-    battery_icon_label = lv_label_create(scr);
-    lv_label_set_text(battery_icon_label, "BAT");
+    wifi_status_label = lv_label_create(status_row);
+    lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0xFF0000), 0);
+
+    battery_icon_label = lv_label_create(status_row);
+    lv_label_set_text(battery_icon_label, LV_SYMBOL_BATTERY_FULL);
     lv_obj_set_style_text_color(battery_icon_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(battery_icon_label, LV_ALIGN_TOP_RIGHT, -50, 5);
-
-    battery_percent_label = lv_label_create(scr);
-    lv_label_set_text(battery_percent_label, "100%");
-    lv_obj_set_style_text_color(battery_percent_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(battery_percent_label, LV_ALIGN_TOP_RIGHT, -5, 5);
 
     // Row 2: Tab index info (centered)
     tab_info_label = lv_label_create(scr);
     lv_label_set_text(tab_info_label, "[1 of 4]");
     lv_obj_set_style_text_color(tab_info_label, lv_color_hex(0xFFFF00), 0);
-    lv_obj_align(tab_info_label, LV_ALIGN_TOP_MID, 0, 30);
 
-    // Row 3: Play/stop icon and tab name (left-aligned)
-    play_icon_label = lv_label_create(scr);
+    // Row 3: Play status container (Play icon + Tab name)
+    lv_obj_t *play_row = lv_obj_create(scr);
+    lv_obj_set_size(play_row, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(play_row, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(play_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(play_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(play_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(play_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(play_row, 0, 0);
+    lv_obj_set_style_pad_gap(play_row, 10, 0);
+
+    play_icon_label = lv_label_create(play_row);
     lv_label_set_text(play_icon_label, "STOP");
     lv_obj_set_style_text_color(play_icon_label, lv_color_hex(0xFF0000), 0);
-    lv_obj_align(play_icon_label, LV_ALIGN_TOP_LEFT, 5, 55);
 
-    tab_name_label = lv_label_create(scr);
+    tab_name_label = lv_label_create(play_row);
     lv_label_set_text(tab_name_label, "No Tab Selected");
     lv_obj_set_style_text_color(tab_name_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(tab_name_label, LV_ALIGN_TOP_LEFT, 60, 55);
 
-    // Row 4: Current time / total length (left-aligned)
+    // Row 4: Time display
     time_label = lv_label_create(scr);
     lv_label_set_text(time_label, "0:00 / 0:00");
     lv_obj_set_style_text_color(time_label, lv_color_hex(0x00FFFF), 0);
-    lv_obj_align(time_label, LV_ALIGN_TOP_LEFT, 5, 80);
 
     // Row 4.5: "Are you sure?" message (centered, initially hidden)
     are_you_sure_label = lv_label_create(scr);
     lv_label_set_text(are_you_sure_label, "Are you sure?");
     lv_obj_set_style_text_color(are_you_sure_label, lv_color_hex(0xFFFF00), 0);
-    lv_obj_align(are_you_sure_label, LV_ALIGN_CENTER, 0, 10);
     lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Initially hidden
 
-    // Row 5: Button functions (aligned over button positions)
-    btn1_label = lv_label_create(scr);
-    lv_label_set_text(btn1_label, "PREV");
+    // Row 5: Button functions container
+    lv_obj_t *button_row = lv_obj_create(scr);
+    lv_obj_set_size(button_row, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(button_row, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(button_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(button_row, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(button_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(button_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(button_row, 0, 0);
+
+    btn1_label = lv_label_create(button_row);
+    lv_label_set_text(btn1_label, LV_SYMBOL_PREV);
     lv_obj_set_style_text_color(btn1_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(btn1_label, LV_ALIGN_BOTTOM_LEFT, 20, -5);
 
-    btn2_label = lv_label_create(scr);
-    lv_label_set_text(btn2_label, "PLAY");
+    btn2_label = lv_label_create(button_row);
+    lv_label_set_text(btn2_label, LV_SYMBOL_PLAY);
     lv_obj_set_style_text_color(btn2_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(btn2_label, LV_ALIGN_BOTTOM_MID, 0, -5);
 
-    btn3_label = lv_label_create(scr);
-    lv_label_set_text(btn3_label, "NEXT");
+    btn3_label = lv_label_create(button_row);
+    lv_label_set_text(btn3_label, LV_SYMBOL_NEXT);
     lv_obj_set_style_text_color(btn3_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(btn3_label, LV_ALIGN_BOTTOM_RIGHT, -20, -5);
 }
 
 void UIManager::updateBatteryUI()
 {
-    if (!system_hal || !battery_icon_label || !battery_percent_label)
+    if (!system_hal || !battery_icon_label)
         return;
 
     auto &power = system_hal->getPowerManager();
     uint8_t battery_percent = power.getBatteryPercentage();
     bool is_charging = power.isCharging();
-
-    // Update battery percentage
-    char percent_text[8];
-    snprintf(percent_text, sizeof(percent_text), "%d%%", battery_percent);
-    lv_label_set_text(battery_percent_label, percent_text);
 
     // Update battery icon based on level and charging status
     const char *icon_text;
@@ -99,27 +110,32 @@ void UIManager::updateBatteryUI()
 
     if (is_charging)
     {
-        icon_text = "CHG";
+        icon_text = LV_SYMBOL_CHARGE;
         icon_color = lv_color_hex(0x00FF00); // Green when charging
     }
-    else if (battery_percent > 75)
+    else if (battery_percent > 80)
     {
-        icon_text = "FULL";
+        icon_text = LV_SYMBOL_BATTERY_FULL;
         icon_color = lv_color_hex(0x00FF00); // Green
     }
-    else if (battery_percent > 50)
+    else if (battery_percent > 60)
     {
-        icon_text = "MED";
+        icon_text = LV_SYMBOL_BATTERY_3;
+        icon_color = lv_color_hex(0x00FF00); // Green
+    }
+    else if (battery_percent > 40)
+    {
+        icon_text = LV_SYMBOL_BATTERY_2;
         icon_color = lv_color_hex(0xFFFF00); // Yellow
     }
-    else if (battery_percent > 25)
+    else if (battery_percent > 20)
     {
-        icon_text = "LOW";
+        icon_text = LV_SYMBOL_BATTERY_1;
         icon_color = lv_color_hex(0xFF8000); // Orange
     }
     else
     {
-        icon_text = "CRIT";
+        icon_text = LV_SYMBOL_BATTERY_EMPTY;
         icon_color = lv_color_hex(0xFF0000); // Red
     }
 
@@ -133,14 +149,22 @@ void UIManager::updateWiFiUI()
         return;
 
     auto &network = system_hal->getNetworkManager();
-    if (network.isConnected())
+    updateWiFiUI(network.isConnected());
+}
+
+void UIManager::updateWiFiUI(const bool connected)
+{
+    if (!system_hal || !wifi_status_label)
+        return;
+
+    if (connected)
     {
-        lv_label_set_text(wifi_status_label, "WiFi");
+        lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
         lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0x00FF00), 0); // Green
     }
     else
     {
-        lv_label_set_text(wifi_status_label, "No WiFi");
+        lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
         lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0xFF0000), 0); // Red
     }
 }
@@ -206,15 +230,15 @@ void UIManager::updateTransportUI(const reaper::TransportState &transport_state,
         switch (transport_state.play_state)
         {
         case 0: // Stopped
-            icon_text = "STOP";
+            icon_text = LV_SYMBOL_STOP;
             icon_color = lv_color_hex(0xFF0000); // Red
             break;
         case 1: // Playing
-            icon_text = "PLAY";
+            icon_text = LV_SYMBOL_PLAY;
             icon_color = lv_color_hex(0x00FF00); // Green
             break;
         case 2: // Paused
-            icon_text = "PAUSE";
+            icon_text = LV_SYMBOL_PAUSE;
             icon_color = lv_color_hex(0xFFFF00); // Yellow
             break;
         case 5: // Recording
@@ -222,7 +246,7 @@ void UIManager::updateTransportUI(const reaper::TransportState &transport_state,
             icon_color = lv_color_hex(0xFF0000); // Red
             break;
         default:
-            icon_text = "UNK";
+            icon_text = LV_SYMBOL_WARNING;
             icon_color = lv_color_hex(0xFFFFFF); // White
             break;
         }
@@ -279,21 +303,21 @@ void UIManager::updateButtonLabelsUI()
     switch (current_ui_state)
     {
     case UIState::STOPPED:
-        lv_label_set_text(btn1_label, "PREV");
-        lv_label_set_text(btn2_label, "PLAY");
-        lv_label_set_text(btn3_label, "NEXT");
+        lv_label_set_text(btn1_label, LV_SYMBOL_PREV);
+        lv_label_set_text(btn2_label, LV_SYMBOL_PLAY);
+        lv_label_set_text(btn3_label, LV_SYMBOL_NEXT);
         lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Hide "Are you sure?"
         break;
     case UIState::PLAYING:
         lv_label_set_text(btn1_label, "---");
-        lv_label_set_text(btn2_label, "STOP?");
+        lv_label_set_text(btn2_label, LV_SYMBOL_STOP);
         lv_label_set_text(btn3_label, "---");
         lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Hide "Are you sure?"
         break;
     case UIState::ARE_YOU_SURE:
-        lv_label_set_text(btn1_label, "STOP");
-        lv_label_set_text(btn2_label, "CANCEL");
-        lv_label_set_text(btn3_label, "CANCEL");
+        lv_label_set_text(btn1_label, LV_SYMBOL_OK);
+        lv_label_set_text(btn2_label, LV_SYMBOL_CLOSE);
+        lv_label_set_text(btn3_label, LV_SYMBOL_CLOSE);
         lv_obj_clear_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Show "Are you sure?"
         break;
     }
@@ -310,8 +334,8 @@ void UIManager::updatePeriodicUI(unsigned long current_time)
     // Update battery UI every 30 seconds
     if (current_time - last_battery_update >= 30000)
     {
-        updateBatteryUI();
         updateWiFiUI();
+        updateBatteryUI();
         last_battery_update = current_time;
     }
 }

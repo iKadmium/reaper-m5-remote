@@ -58,6 +58,8 @@ namespace hal
             connected = true;
             printf("Connected! IP: %s\n", ip_address.c_str());
             return true;
+            // connected = false;
+            // return false;
         }
 
         bool disconnect() override

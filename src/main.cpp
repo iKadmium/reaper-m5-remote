@@ -37,9 +37,9 @@ int main()
 
     LOG_INFO("Main", "Application starting...");
 
-    // Initialize network manager and connect to WiFi
+    // Initialize network manager
     g_network = new NetworkManager(&g_system->getNetworkManager());
-    g_network->connectToWiFi();
+    // Note: WiFi connection will be handled by HTTP job manager
 
     // Initialize UI manager
     g_ui = new UIManager(g_system);
@@ -50,10 +50,18 @@ int main()
     snprintf(url_buffer, sizeof(url_buffer), "http://%s:%d/_", getReaperServer(), getReaperPort());
     std::string reaper_base_url(url_buffer);
 
-    g_http_manager = new http::HttpJobManager(g_system, reaper_base_url);
-    if (!g_http_manager->initialize())
+    try
     {
-        LOG_ERROR("Main", "Failed to initialize HTTP job manager");
+        g_http_manager = new http::HttpJobManager(g_system, g_network, reaper_base_url);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Main", "Failed to initialize HTTP job manager: {}", e.what());
+#ifdef ARDUINO
+        return; // Cannot continue without HTTP manager
+#else
+        return 1; // Return error code for native build
+#endif
     }
 
     // Initialize state manager
@@ -86,6 +94,12 @@ void loop()
     // Update state management
     g_state_manager->update(current_time);
 
+    // Check for connection retries in HTTP manager
+    if (g_http_manager)
+    {
+        g_http_manager->checkAndRetryConnections(current_time);
+    }
+
     // Process HTTP job results
     if (g_http_manager)
     {
@@ -93,7 +107,23 @@ void loop()
         for (const auto &result : results)
         {
             // Handle different types of results
-            if (result->result_type == http::ResultType::CHANGE_TAB)
+            if (result->result_type == http::ResultType::WIFI_CONNECT)
+            {
+                auto wifi_result = static_cast<const http::WiFiConnectResult *>(result.get());
+                if (wifi_result->success && wifi_result->connected)
+                {
+                    LOG_INFO("Main", "WiFi connected successfully. IP: {}", wifi_result->ip_address);
+                    // Submit script action ID job now that WiFi is connected
+                    g_http_manager->submitGetScriptActionIdJob();
+                }
+                else
+                {
+                    LOG_ERROR("Main", "WiFi connection failed");
+                    g_http_manager->submitWiFiConnectJob();
+                }
+                g_ui->updateWiFiUI();
+            }
+            else if (result->result_type == http::ResultType::CHANGE_TAB)
             {
                 auto change_tab_result = static_cast<const http::ChangeTabResult *>(result.get());
                 LOG_DEBUG("Main", "Processing change tab result - tabs: {}, active_index: {}, play_state: {}",
@@ -182,19 +212,6 @@ void loop()
                 }
             }
         }
-    }
-
-    // Periodic transport updates when playing or in "are you sure" mode
-    static unsigned long last_transport_update = 0;
-    const unsigned long TRANSPORT_UPDATE_INTERVAL = 1000; // 1 second
-
-    UIState current_ui_state = g_ui->getCurrentUIState();
-    if ((current_ui_state == UIState::PLAYING || current_ui_state == UIState::ARE_YOU_SURE) &&
-        (current_time - last_transport_update >= TRANSPORT_UPDATE_INTERVAL))
-    {
-        g_http_manager->submitGetTransportJob();
-        last_transport_update = current_time;
-        LOG_DEBUG("Main", "Submitted periodic transport update");
     }
 
     // Update UI elements based on current state

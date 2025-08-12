@@ -13,12 +13,21 @@ void StateManager::update(unsigned long current_time)
         return;
 
     // Update Reaper state if it's time and not awaiting async update
-    if (!awaiting_state_update && (current_time - last_reaper_update >= getReaperStateInterval()))
+    if (http_job_manager->isWiFiConnected() && !awaiting_state_update && (current_time - last_reaper_update >= getReaperStateInterval()))
     {
         awaiting_state_update = true;
         http_job_manager->submitGetStatusJob();
         last_reaper_update = current_time;
         last_transport_update = current_time;
+    }
+
+    // Periodic transport updates when playing or in "are you sure" mode
+    UIState current_ui_state = ui_manager->getCurrentUIState();
+    if (http_job_manager->isWiFiConnected() && (current_ui_state == UIState::PLAYING || current_ui_state == UIState::ARE_YOU_SURE) && (current_time - last_transport_update >= 1000)) // 1 second interval
+    {
+        http_job_manager->submitGetTransportJob();
+        last_transport_update = current_time;
+        LOG_DEBUG("StateManager", "Submitted periodic transport update");
     }
 }
 
