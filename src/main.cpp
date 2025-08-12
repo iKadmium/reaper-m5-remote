@@ -121,6 +121,7 @@ void loop()
                     LOG_ERROR("Main", "WiFi connection failed");
                     g_http_manager->submitWiFiConnectJob();
                 }
+                g_ui->setUIState(UIState::DISCONNECTED);
                 g_ui->updateWiFiUI();
             }
             else if (result->result_type == http::ResultType::CHANGE_TAB)
@@ -185,6 +186,7 @@ void loop()
                 {
                     g_http_manager->setScriptActionId(script_result->script_action_id);
                     LOG_INFO("Main", "ReaperSetlist script action ID set: {}", script_result->script_action_id);
+                    g_ui->setUIState(UIState::STOPPED);
                 }
                 else
                 {

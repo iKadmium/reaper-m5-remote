@@ -7,6 +7,7 @@
 
 enum class UIState
 {
+    DISCONNECTED,
     STOPPED,
     PLAYING,
     ARE_YOU_SURE
@@ -28,7 +29,7 @@ private:
     lv_obj_t *btn3_label = nullptr;
 
     // State tracking
-    UIState current_ui_state = UIState::STOPPED;
+    UIState current_ui_state = UIState::DISCONNECTED;
     unsigned long last_battery_update = 0;
 
     // System references

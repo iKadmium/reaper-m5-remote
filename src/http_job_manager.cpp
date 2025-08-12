@@ -18,7 +18,7 @@ namespace http
     // HttpJobManager implementation
     HttpJobManager::HttpJobManager(hal::ISystemHAL *system, NetworkManager *network, const std::string &reaper_base_url)
         : system_hal(system), network_manager(network), base_url(reaper_base_url),
-          wifi_connected(false), last_wifi_attempt(0), script_action_id_attempts(0),
+          wifi_connected(false), last_wifi_attempt(0), last_action_id_attempt(0),
           next_job_id(1), worker_running(false)
 #ifdef ARDUINO
           ,
@@ -367,16 +367,12 @@ namespace http
         // If WiFi is connected but we don't have script action ID, retry that
         else if (wifi_connected.load() && script_action_id.empty())
         {
-            uint32_t attempts = script_action_id_attempts.load();
-            if (attempts < MAX_SCRIPT_ID_ATTEMPTS)
+            uint32_t last_attempt = last_action_id_attempt.load();
+            if (current_time - last_attempt >= SCRIPT_ID_RETRY_INTERVAL_MS)
             {
-                LOG_DEBUG("HttpJobManager", "Retrying script action ID request (attempt {})", attempts + 1);
+                LOG_DEBUG("HttpJobManager", "Retrying script action ID request");
                 submitGetScriptActionIdJob();
-                script_action_id_attempts.store(attempts + 1);
-            }
-            else
-            {
-                LOG_ERROR("HttpJobManager", "Max script action ID attempts reached, giving up");
+                last_action_id_attempt.store(current_time);
             }
         }
     }

@@ -83,15 +83,15 @@ void UIManager::createUI()
     lv_obj_set_style_pad_all(button_row, 0, 0);
 
     btn1_label = lv_label_create(button_row);
-    lv_label_set_text(btn1_label, LV_SYMBOL_PREV);
+    lv_label_set_text(btn1_label, "");
     lv_obj_set_style_text_color(btn1_label, lv_color_hex(0xFFFFFF), 0);
 
     btn2_label = lv_label_create(button_row);
-    lv_label_set_text(btn2_label, LV_SYMBOL_PLAY);
+    lv_label_set_text(btn2_label, "");
     lv_obj_set_style_text_color(btn2_label, lv_color_hex(0xFFFFFF), 0);
 
     btn3_label = lv_label_create(button_row);
-    lv_label_set_text(btn3_label, LV_SYMBOL_NEXT);
+    lv_label_set_text(btn3_label, "");
     lv_obj_set_style_text_color(btn3_label, lv_color_hex(0xFFFFFF), 0);
 }
 
@@ -302,6 +302,12 @@ void UIManager::updateButtonLabelsUI()
 
     switch (current_ui_state)
     {
+    case UIState::DISCONNECTED:
+        lv_label_set_text(btn1_label, LV_SYMBOL_CLOSE);
+        lv_label_set_text(btn2_label, LV_SYMBOL_CLOSE);
+        lv_label_set_text(btn3_label, LV_SYMBOL_CLOSE);
+        lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Hide "Are you sure?"
+        break;
     case UIState::STOPPED:
         lv_label_set_text(btn1_label, LV_SYMBOL_PREV);
         lv_label_set_text(btn2_label, LV_SYMBOL_PLAY);
