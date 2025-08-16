@@ -161,6 +161,12 @@ namespace hal
             std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
         }
 
+        void powerOff() override
+        {
+            printf("System power off (simulated)\n");
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
         void restart() override
         {
             printf("System restart (simulated)\n");

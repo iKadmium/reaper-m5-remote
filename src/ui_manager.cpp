@@ -29,6 +29,10 @@ void UIManager::createUI()
     lv_obj_set_style_pad_all(status_row, 0, 0);
     lv_obj_set_style_pad_gap(status_row, 10, 0);
 
+    reaper_status_label = lv_label_create(status_row);
+    lv_label_set_text(reaper_status_label, LV_SYMBOL_AUDIO);
+    lv_obj_set_style_text_color(reaper_status_label, lv_color_hex(0xFF0000), 0);
+
     wifi_status_label = lv_label_create(status_row);
     lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0xFF0000), 0);
@@ -36,6 +40,10 @@ void UIManager::createUI()
     battery_icon_label = lv_label_create(status_row);
     lv_label_set_text(battery_icon_label, LV_SYMBOL_BATTERY_FULL);
     lv_obj_set_style_text_color(battery_icon_label, lv_color_hex(0xFFFFFF), 0);
+
+    battery_percentage_label = lv_label_create(status_row);
+    lv_label_set_text(battery_percentage_label, "??");
+    lv_obj_set_style_text_color(battery_percentage_label, lv_color_hex(0xFFFFFF), 0);
 
     // Row 2: Tab index info (centered)
     tab_info_label = lv_label_create(scr);
@@ -139,6 +147,10 @@ void UIManager::updateBatteryUI()
         icon_color = lv_color_hex(0xFF0000); // Red
     }
 
+    auto battery_percent_text = std::to_string(battery_percent) + "%";
+    lv_label_set_text(battery_percentage_label, battery_percent_text.c_str());
+    lv_obj_set_style_text_color(battery_percentage_label, icon_color, 0);
+
     lv_label_set_text(battery_icon_label, icon_text);
     lv_obj_set_style_text_color(battery_icon_label, icon_color, 0);
 }
@@ -157,16 +169,10 @@ void UIManager::updateWiFiUI(const bool connected)
     if (!system_hal || !wifi_status_label)
         return;
 
-    if (connected)
-    {
-        lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
-        lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0x00FF00), 0); // Green
-    }
-    else
-    {
-        lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
-        lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0xFF0000), 0); // Red
-    }
+    LOG_INFO("WIFI", "Connected %d", connected);
+    auto color = connected ? lv_palette_main(LV_PALETTE_GREEN) : lv_palette_main(LV_PALETTE_RED);
+    lv_obj_set_style_text_color(wifi_status_label, color, 0);
+    lv_obj_invalidate(wifi_status_label);
 }
 
 void UIManager::updateReaperStateUI(const reaper::ReaperState &state)
@@ -176,6 +182,10 @@ void UIManager::updateReaperStateUI(const reaper::ReaperState &state)
 
     if (state.success && !state.tabs.empty())
     {
+        auto status_color = state.success ? lv_palette_main(LV_PALETTE_GREEN) : lv_palette_main(LV_PALETTE_RED);
+        lv_obj_set_style_text_color(reaper_status_label, status_color, 0);
+        lv_obj_invalidate(reaper_status_label);
+
         // Update tab info
         char tab_info[32];
         snprintf(tab_info, sizeof(tab_info), "[%d of %d]",

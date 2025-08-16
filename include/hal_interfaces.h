@@ -30,7 +30,6 @@ namespace hal
         virtual ~IPowerManager() = default;
 
         // Battery status
-        virtual float getBatteryVoltage() const = 0;
         virtual uint8_t getBatteryPercentage() const = 0;
         virtual bool isCharging() const = 0;
 
@@ -42,6 +41,7 @@ namespace hal
         // Power saving
         virtual void setCpuFrequency(uint32_t mhz) = 0;
         virtual void enableWiFiPowerSave(bool enable) = 0;
+        virtual void powerOff() = 0;
     };
 
     // Display interface abstraction

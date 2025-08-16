@@ -8,6 +8,7 @@
 #include "state_manager.h"
 #include "network_manager.h"
 #include "http_job_manager.h"
+#include "power_manager.h"
 
 #ifdef ARDUINO
 #include "m5stack_hal.h"
@@ -24,6 +25,7 @@ ButtonHandler *g_button_handler = nullptr;
 StateManager *g_state_manager = nullptr;
 NetworkManager *g_network = nullptr;
 http::HttpJobManager *g_http_manager = nullptr;
+PowerManager *g_power_manager = nullptr;
 
 #ifdef ARDUINO
 void setup()
@@ -31,9 +33,19 @@ void setup()
 int main()
 #endif
 {
-    // Create and initialize system HAL
+    // Create and initialize system HAL first (initializes Serial)
     g_system = new SystemHAL();
     g_system->init();
+
+#ifdef ARDUINO
+    // Add a small delay and test Serial output before logging
+    delay(500);
+    Serial.println("=== Serial Test - Before Logging Init ===");
+    Serial.flush();
+#endif
+
+    // Initialize logging system after Serial is ready
+    init_logging();
 
     LOG_INFO("Main", "Application starting...");
 
@@ -71,6 +83,9 @@ int main()
     g_button_handler = new ButtonHandler(&g_system->getInputManager(), g_http_manager, g_ui);
     g_button_handler->setStateReferences(&g_state_manager->getReaperState(), &g_state_manager->getTransportState());
 
+    // Initialize power manager
+    g_power_manager = new PowerManager(g_system, g_ui);
+
     LOG_INFO("Main", "Application initialized");
 
 #ifdef ARDUINO
@@ -78,7 +93,12 @@ int main()
 
 void loop()
 {
+    // Track UI state changes for power management
+    static UIState last_ui_state = UIState::DISCONNECTED;
 #else
+    // Track UI state changes for power management
+    UIState last_ui_state = UIState::DISCONNECTED;
+
     while (true)
     {
 #endif
@@ -89,7 +109,11 @@ void loop()
     unsigned long current_time = g_system->getMillis();
 
     // Handle button presses
-    g_button_handler->handleButtonPress();
+    auto button_pressed = g_button_handler->handleButtonPress();
+    if (button_pressed)
+    {
+        g_power_manager->onButtonPress();
+    }
 
     // Update state management
     g_state_manager->update(current_time);
@@ -123,6 +147,7 @@ void loop()
                 }
                 g_ui->setUIState(UIState::DISCONNECTED);
                 g_ui->updateWiFiUI();
+                g_ui->updateBatteryUI();
             }
             else if (result->result_type == http::ResultType::CHANGE_TAB)
             {
@@ -237,6 +262,20 @@ void loop()
     // Debug logging
     g_state_manager->periodicDebugLog(current_time);
 
+    // Check for UI state changes and notify power manager
+    UIState current_ui_state = g_ui->getCurrentUIState();
+    if (current_ui_state != last_ui_state)
+    {
+        g_power_manager->onUIStateChange(current_ui_state, last_ui_state);
+        last_ui_state = current_ui_state;
+    }
+
+    // Update power manager with current transport state
+    g_power_manager->onTransportUpdate(g_state_manager->getTransportState(), g_state_manager->getReaperState());
+
+    // Update power management (check for sleep conditions)
+    g_power_manager->update(current_time);
+
     // Small delay to prevent overwhelming the system
     g_system->delay(1000 / 60);
 
@@ -244,6 +283,7 @@ void loop()
 }
 
 // Cleanup
+delete g_power_manager;
 delete g_button_handler;
 delete g_state_manager;
 delete g_ui;

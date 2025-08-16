@@ -50,7 +50,7 @@ public:
     void setStateReferences(reaper::ReaperState *reaper_state, reaper::TransportState *transport_state);
 
     // Main button handling
-    void handleButtonPress();
+    bool handleButtonPress();
 
     // State control for HTTP job processing
     void setAwaitingStateUpdate(bool awaiting) { awaiting_state_update = awaiting; }

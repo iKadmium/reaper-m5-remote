@@ -14,10 +14,10 @@ void ButtonHandler::setStateReferences(reaper::ReaperState *reaper_state, reaper
     current_transport_state = transport_state;
 }
 
-void ButtonHandler::handleButtonPress()
+bool ButtonHandler::handleButtonPress()
 {
     if (!input_mgr || !http_job_manager || !ui_manager)
-        return;
+        return false;
 
     // Check for button presses
     bool btn1_pressed = input_mgr->wasButtonPressed(0); // Button A
@@ -25,7 +25,7 @@ void ButtonHandler::handleButtonPress()
     bool btn3_pressed = input_mgr->wasButtonPressed(2); // Button C
 
     if (!btn1_pressed && !btn2_pressed && !btn3_pressed)
-        return;
+        return false;
 
     UIState current_state = ui_manager->getCurrentUIState();
 
@@ -41,6 +41,8 @@ void ButtonHandler::handleButtonPress()
         handleAreYouSureState();
         break;
     }
+
+    return true; // Button was handled
 }
 
 void ButtonHandler::handleStoppedState()

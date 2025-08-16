@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <lvgl.h>
+#include <Wire.h>
 
 namespace hal
 {
@@ -48,6 +49,7 @@ namespace hal
 
         bool isConnected() const override
         {
+            LOG_INFO("WIFI", "Connected %d, Wifi status %d", connected, WiFi.status());
             return connected && WiFi.status() == WL_CONNECTED;
         }
 
@@ -79,18 +81,11 @@ namespace hal
     class M5StackPowerManager : public IPowerManager
     {
     public:
-        float getBatteryVoltage() const override
-        {
-            // Note: M5Stack Power API varies by version, using getBatteryLevel as fallback
-            return M5.Power.getBatteryLevel(); // This typically returns voltage in V
-        }
-
         uint8_t getBatteryPercentage() const override
         {
-            float voltage = getBatteryVoltage();
-            // Simple voltage to percentage conversion (adjust for your battery)
-            float percentage = ((voltage - 3.0) / (4.2 - 3.0)) * 100.0;
-            return constrain(percentage, 0, 100);
+            uint8_t battery_level = M5.Power.getBatteryLevel();
+            LOG_INFO("PowerManager", "Battery level: %d%%", battery_level);
+            return battery_level;
         }
 
         bool isCharging() const override
@@ -106,6 +101,11 @@ namespace hal
         void lightSleep(uint32_t milliseconds) override
         {
             M5.Power.lightSleep(milliseconds * 1000ULL);
+        }
+
+        void powerOff() override
+        {
+            M5.Power.powerOFF();
         }
 
         void restart() override
@@ -294,6 +294,10 @@ namespace hal
             // Initialize M5Stack
             M5.begin();
             Serial.begin(115200);
+
+            // Explicitly initialize I2C (Wire) to prevent I2C communication errors
+            // M5.begin() should do this, but we'll be explicit to ensure it works
+            Wire.begin();
 
             // Initialize LVGL
             lv_init();

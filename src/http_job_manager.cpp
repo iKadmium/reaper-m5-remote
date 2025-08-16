@@ -75,7 +75,7 @@ namespace http
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR("HttpJobManager", "Failed to create worker thread: {}", e.what());
+            LOG_ERROR("HttpJobManager", "Failed to create worker thread: %s", e.what());
             throw;
         }
 #endif
@@ -84,7 +84,7 @@ namespace http
 
         // Submit WiFi connection job as the first job
         uint32_t wifi_job_id = submitWiFiConnectJob();
-        LOG_INFO("HttpJobManager", "Submitted initial WiFi connection job {}", wifi_job_id);
+        LOG_INFO("HttpJobManager", "Submitted initial WiFi connection job %d", wifi_job_id);
 
         LOG_INFO("HttpJobManager", "HTTP job manager initialized successfully");
     }
@@ -145,7 +145,7 @@ namespace http
         HttpJobResult *result_ptr = result.release();
         if (xQueueSend(main_result_queue, &result_ptr, 0) != pdTRUE)
         {
-            LOG_ERROR("HttpJobManager", "Failed to send result for job {} - main queue full", result_ptr->job_id);
+            LOG_ERROR("HttpJobManager", "Failed to send result for job %d - main queue full", result_ptr->job_id);
             delete result_ptr; // Clean up if queue is full
         }
 #else
@@ -182,7 +182,7 @@ namespace http
         job_available.notify_one();
 #endif
 
-        LOG_DEBUG("HttpJobManager", "Submitted WiFi connect job {}", job_id);
+        LOG_DEBUG("HttpJobManager", "Submitted WiFi connect job %d", job_id);
         return job_id;
     }
 
@@ -214,7 +214,7 @@ namespace http
         job_available.notify_one();
 #endif
 
-        LOG_DEBUG("HttpJobManager", "Submitted change tab job {} (direction: {})",
+        LOG_DEBUG("HttpJobManager", "Submitted change tab job %d (direction: %s)",
                   job_id, direction == TabDirection::NEXT ? "NEXT" : "PREVIOUS");
         return job_id;
     }
@@ -247,7 +247,7 @@ namespace http
         job_available.notify_one();
 #endif
 
-        LOG_DEBUG("HttpJobManager", "Submitted change playstate job {} (action: {})",
+        LOG_DEBUG("HttpJobManager", "Submitted change playstate job %d (action: %d)",
                   job_id, static_cast<int>(action));
         return job_id;
     }
@@ -280,7 +280,7 @@ namespace http
         job_available.notify_one();
 #endif
 
-        LOG_DEBUG("HttpJobManager", "Submitted get status job {}", job_id);
+        LOG_DEBUG("HttpJobManager", "Submitted get status job %d", job_id);
         return job_id;
     }
 
@@ -312,7 +312,7 @@ namespace http
         job_available.notify_one();
 #endif
 
-        LOG_DEBUG("HttpJobManager", "Submitted get script action ID job {}", job_id);
+        LOG_DEBUG("HttpJobManager", "Submitted get script action ID job %d", job_id);
         return job_id;
     }
 

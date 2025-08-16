@@ -18,7 +18,9 @@ class UIManager
 private:
     // UI elements
     lv_obj_t *wifi_status_label = nullptr;
+    lv_obj_t *reaper_status_label = nullptr;
     lv_obj_t *battery_icon_label = nullptr;
+    lv_obj_t *battery_percentage_label = nullptr;
     lv_obj_t *tab_info_label = nullptr;
     lv_obj_t *play_icon_label = nullptr;
     lv_obj_t *tab_name_label = nullptr;
