@@ -21,7 +21,14 @@ try:
     print("Using real M5Stack hardware")
 except ImportError:
     sys.path.append('lib')
-    from m5stack_simulator import lcd, buttonA, buttonB, buttonC, simulate_button_press
+    try:
+        # Try GUI simulator first
+        from m5stack_gui_simulator import lcd, buttonA, buttonB, buttonC, simulate_button_press
+        print("Using M5Stack GUI simulator")
+    except ImportError:
+        # Fall back to console simulator
+        from m5stack_simulator import lcd, buttonA, buttonB, buttonC, simulate_button_press
+        print("Using M5Stack console simulator")
     import machine  # Mock machine module for simulator
     USING_SIMULATOR = True
     print("Using M5Stack simulator")

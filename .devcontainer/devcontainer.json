@@ -30,5 +30,11 @@
 				"ms-python.python"
 			]
 		}
-	}
+	},
+	"runArgs": [
+		"--device=/dev/ttyACM0",
+		"--userns=keep-id",
+		"--group-add",
+		"18"
+	]
 }
