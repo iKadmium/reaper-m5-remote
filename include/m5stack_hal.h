@@ -185,13 +185,13 @@ namespace hal
             M5.Lcd.pushImage(x1, y1, x2 - x1 + 1, y2 - y1 + 1, (uint16_t *)color_p);
         }
 
-        static void lvgl_flush_cb(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+        static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
         {
             if (instance)
             {
-                instance->flush(area->x1, area->y1, area->x2, area->y2, (uint16_t *)color_p);
+                instance->flush(area->x1, area->y1, area->x2, area->y2, (uint16_t *)px_map);
             }
-            lv_disp_flush_ready(disp);
+            lv_display_flush_ready(disp);
         }
     };
 
@@ -272,12 +272,11 @@ namespace hal
         M5StackDisplayManager display_mgr;
         M5StackInputManager input_mgr;
 
-        // LVGL display buffer - single buffer to save memory
+        // LVGL display and input objects
         static const size_t buf_size = 320 * 15; // Reduced from 60 to 15 lines
         static lv_color_t buf_1[buf_size];
-        lv_disp_draw_buf_t draw_buf;
-        lv_disp_drv_t disp_drv;
-        lv_indev_drv_t indev_drv;
+        lv_display_t *display;
+        lv_indev_t *indev;
 
     public:
         M5StackSystemHAL()
@@ -302,22 +301,15 @@ namespace hal
             // Initialize LVGL
             lv_init();
 
-            // Initialize display buffer (single buffer to save memory)
-            lv_disp_draw_buf_init(&draw_buf, buf_1, nullptr, buf_size);
+            // Create display (LVGL 9.x API)
+            display = lv_display_create(320, 240);
+            lv_display_set_flush_cb(display, M5StackDisplayManager::lvgl_flush_cb);
+            lv_display_set_buffers(display, buf_1, nullptr, buf_size * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-            // Initialize display driver
-            lv_disp_drv_init(&disp_drv);
-            disp_drv.hor_res = 320;
-            disp_drv.ver_res = 240;
-            disp_drv.flush_cb = M5StackDisplayManager::lvgl_flush_cb;
-            disp_drv.draw_buf = &draw_buf;
-            lv_disp_drv_register(&disp_drv);
-
-            // Initialize input driver (buttons)
-            lv_indev_drv_init(&indev_drv);
-            indev_drv.type = LV_INDEV_TYPE_BUTTON;
-            indev_drv.read_cb = input_read_cb;
-            lv_indev_drv_register(&indev_drv);
+            // Create input device (LVGL 9.x API)
+            indev = lv_indev_create();
+            lv_indev_set_type(indev, LV_INDEV_TYPE_BUTTON);
+            lv_indev_set_read_cb(indev, input_read_cb);
 
             Serial.println("M5Stack System initialized");
         }
@@ -339,14 +331,14 @@ namespace hal
         }
 
     private:
-        static void input_read_cb(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
+        static void input_read_cb(lv_indev_t *indev_drv, lv_indev_data_t *data)
         {
             // Simple button to coordinate mapping for demo
             static bool btn_pressed = false;
 
             if (M5.BtnA.isPressed() || M5.BtnB.isPressed() || M5.BtnC.isPressed())
             {
-                data->state = LV_INDEV_STATE_PR;
+                data->state = LV_INDEV_STATE_PRESSED;
                 if (M5.BtnA.isPressed())
                 {
                     data->point.x = 50;
@@ -365,7 +357,7 @@ namespace hal
             }
             else
             {
-                data->state = LV_INDEV_STATE_REL;
+                data->state = LV_INDEV_STATE_RELEASED;
             }
         }
     };
