@@ -134,11 +134,6 @@ namespace hal
     class NativePowerManager : public IPowerManager
     {
     public:
-        float getBatteryVoltage() const override
-        {
-            return 3.7f; // Simulate battery voltage
-        }
-
         uint8_t getBatteryPercentage() const override
         {
             return 85; // Simulate 85% battery
@@ -216,12 +211,15 @@ namespace hal
 
         bool initSDL()
         {
+            printf("Initializing SDL...\n");
             if (SDL_Init(SDL_INIT_VIDEO) < 0)
             {
                 printf("SDL init failed: %s\n", SDL_GetError());
                 return false;
             }
+            printf("SDL initialized successfully\n");
 
+            printf("Creating window...\n");
             window = SDL_CreateWindow("M5Stack Simulator",
                                       SDL_WINDOWPOS_UNDEFINED,
                                       SDL_WINDOWPOS_UNDEFINED,
@@ -234,14 +232,18 @@ namespace hal
                 printf("Window creation failed: %s\n", SDL_GetError());
                 return false;
             }
+            printf("Window created successfully\n");
 
-            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+            printf("Creating renderer...\n");
+            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
             if (!renderer)
             {
                 printf("Renderer creation failed: %s\n", SDL_GetError());
                 return false;
             }
+            printf("Renderer created successfully\n");
 
+            printf("Creating texture...\n");
             texture = SDL_CreateTexture(renderer,
                                         SDL_PIXELFORMAT_RGB565,
                                         SDL_TEXTUREACCESS_STREAMING,
@@ -253,6 +255,7 @@ namespace hal
                 printf("Texture creation failed: %s\n", SDL_GetError());
                 return false;
             }
+            printf("Texture created successfully\n");
 
             return true;
         }
@@ -435,8 +438,8 @@ namespace hal
 
         std::chrono::steady_clock::time_point start_time;
 
-        // LVGL display and input objects
-        static const size_t buf_size = 320 * 60;
+        // Reduced buffer size for memory conservation
+        static const size_t buf_size = 320 * 10; // Much smaller buffer
         static lv_color_t buf_1[buf_size];
         static lv_color_t buf_2[buf_size];
         lv_display_t *display;
@@ -448,43 +451,7 @@ namespace hal
         IDisplayManager &getDisplayManager() override { return display_mgr; }
         IInputManager &getInputManager() override { return input_mgr; }
 
-        void init() override
-        {
-            start_time = std::chrono::steady_clock::now();
-
-            // Initialize logging with colored log4j-style format
-            auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-            console_sink->set_pattern("[%^%l%$] [%Y-%m-%d %H:%M:%S.%e] %@ %! - %v");
-
-            auto logger = std::make_shared<spdlog::logger>("default", console_sink);
-            logger->set_level(spdlog::level::debug);
-            spdlog::set_default_logger(logger);
-            spdlog::set_level(spdlog::level::debug);
-
-            // Initialize SDL and display
-            if (!display_mgr.initSDL())
-            {
-                LOG_ERROR("Native", "Failed to initialize SDL");
-                exit(1);
-            }
-
-            // Initialize LVGL
-            lv_init();
-
-            // Create display (LVGL 9.x API)
-            display = lv_display_create(320, 240);
-            lv_display_set_flush_cb(display, NativeDisplayManager::lvgl_flush_cb);
-            lv_display_set_buffers(display, buf_1, buf_2, buf_size * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
-
-            // Create input device (LVGL 9.x API)
-            indev = lv_indev_create();
-            lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
-            lv_indev_set_read_cb(indev, input_read_cb);
-            lv_indev_set_user_data(indev, this);
-
-            LOG_INFO("Native", "System initialized");
-            LOG_INFO("Native", "Use keys A/1, B/2, C/3 for buttons or click with mouse");
-        }
+        void init() override;
 
         void update() override
         {

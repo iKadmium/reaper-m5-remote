@@ -68,7 +68,11 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     /** Size of memory available for `lv_malloc()` in bytes (>= 2kB) */
-    #define LV_MEM_SIZE (16 * 1024U)          /**< [bytes] */
+    #ifdef NATIVE_BUILD
+        #define LV_MEM_SIZE (128 * 1024U)      /**< [bytes] - Large for native build */
+    #else
+        #define LV_MEM_SIZE (32 * 1024U)       /**< [bytes] - Smaller for ESP32 hardware */
+    #endif
 
     /** Size of the memory expand for `lv_malloc()` in bytes */
     #define LV_MEM_POOL_EXPAND_SIZE 0
@@ -1162,16 +1166,16 @@
  *==================*/
 
 /** Use SDL to open window on PC and handle mouse and keyboard. */
-#define LV_USE_SDL              0
-#if LV_USE_SDL
+// #define LV_USE_SDL              1
+// #if LV_USE_SDL
     #define LV_SDL_INCLUDE_PATH     <SDL2/SDL.h>
     #define LV_SDL_RENDER_MODE      LV_DISPLAY_RENDER_MODE_DIRECT   /**< LV_DISPLAY_RENDER_MODE_DIRECT is recommended for best performance */
     #define LV_SDL_BUF_COUNT        1    /**< 1 or 2 */
-    #define LV_SDL_ACCELERATED      1    /**< 1: Use hardware acceleration*/
+    #define LV_SDL_ACCELERATED      0    /**< 1: Use hardware acceleration*/
     #define LV_SDL_FULLSCREEN       0    /**< 1: Make the window full screen by default */
     #define LV_SDL_DIRECT_EXIT      1    /**< 1: Exit the application when all SDL windows are closed */
     #define LV_SDL_MOUSEWHEEL_MODE  LV_SDL_MOUSEWHEEL_MODE_ENCODER  /*LV_SDL_MOUSEWHEEL_MODE_ENCODER/CROWN*/
-#endif
+// #endif
 
 /** Use X11 to open window on Linux desktop and handle mouse and keyboard */
 #define LV_USE_X11              0

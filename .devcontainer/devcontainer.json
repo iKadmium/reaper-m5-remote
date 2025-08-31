@@ -22,15 +22,29 @@
 	"features": {},
 	// Use 'forwardPorts' to make a list of ports inside the contaciner available locally.
 	// "forwardPorts": [],
-	// Share M5Stack USB device
+	// Share M5Stack USB device and enable Wayland/GPU access
 	"runArgs": [
 		"--device=/dev/ttyACM0",
 		"--userns=keep-id",
 		"--group-add",
-		"18"
+		"18",
+		// GPU access for Wayland
+		"--device=/dev/dri",
+		// Add render group for GPU access
+		"--group-add",
+		"render"
+	],
+	"mounts": [
+		// Wayland socket
+		"source=${localEnv:XDG_RUNTIME_DIR}/${localEnv:WAYLAND_DISPLAY},target=/run/user/1000/${localEnv:WAYLAND_DISPLAY},type=bind"
 	],
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "echo 'source /home/vscode/platformio-venv/bin/activate' >> ~/.bashrc",
+	// Environment variables for Wayland
+	"containerEnv": {
+		"WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+		"XDG_RUNTIME_DIR": "/run/user/1000"
+	},
 	// Configure tool-specific properties.
 	// "customizations": {},
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.

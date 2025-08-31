@@ -2,105 +2,32 @@
 #include "log.h"
 #include <cstdio>
 
-UIManager::UIManager(hal::ISystemHAL *hal) : system_hal(hal)
+UIManager::UIManager(hal::ISystemHAL *hal) : system_hal(hal), wifi_connected(false), reaper_connected(false)
 {
 }
 
 void UIManager::createUI()
 {
-    // Create main screen
+    setupMainScreen();
+
     lv_obj_t *scr = lv_scr_act();
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+    if (!scr)
+    {
+        LOG_ERROR("UIManager", "No screen available after setupMainScreen!");
+        return;
+    }
 
-    // Set up main layout as vertical flex container with space between items
-    lv_obj_set_layout(scr, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(scr, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(scr, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_all(scr, 5, 0);
+    createGlobalContainer(scr);
 
-    // Row 1: Status bar container (WiFi + Battery)
-    lv_obj_t *status_row = lv_obj_create(scr);
-    lv_obj_set_size(status_row, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_layout(status_row, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(status_row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(status_row, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_bg_opa(status_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_opa(status_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_pad_all(status_row, 0, 0);
-    lv_obj_set_style_pad_gap(status_row, 10, 0);
+    createStatusContainer(global_container);
+    createConnectionStatusLabel(global_container);
+    createMainUIContainer(global_container);
 
-    reaper_status_label = lv_label_create(status_row);
-    lv_label_set_text(reaper_status_label, LV_SYMBOL_AUDIO);
-    lv_obj_set_style_text_color(reaper_status_label, lv_color_hex(0xFF0000), 0);
-
-    wifi_status_label = lv_label_create(status_row);
-    lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0xFF0000), 0);
-
-    battery_icon_label = lv_label_create(status_row);
-    lv_label_set_text(battery_icon_label, LV_SYMBOL_BATTERY_FULL);
-    lv_obj_set_style_text_color(battery_icon_label, lv_color_hex(0xFFFFFF), 0);
-
-    battery_percentage_label = lv_label_create(status_row);
-    lv_label_set_text(battery_percentage_label, "??");
-    lv_obj_set_style_text_color(battery_percentage_label, lv_color_hex(0xFFFFFF), 0);
-
-    // Row 2: Tab index info (centered)
-    tab_info_label = lv_label_create(scr);
-    lv_label_set_text(tab_info_label, "[1 of 4]");
-    lv_obj_set_style_text_color(tab_info_label, lv_color_hex(0xFFFF00), 0);
-
-    // Row 3: Play status container (Play icon + Tab name)
-    lv_obj_t *play_row = lv_obj_create(scr);
-    lv_obj_set_size(play_row, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_layout(play_row, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(play_row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(play_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_bg_opa(play_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_opa(play_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_pad_all(play_row, 0, 0);
-    lv_obj_set_style_pad_gap(play_row, 10, 0);
-
-    play_icon_label = lv_label_create(play_row);
-    lv_label_set_text(play_icon_label, "STOP");
-    lv_obj_set_style_text_color(play_icon_label, lv_color_hex(0xFF0000), 0);
-
-    tab_name_label = lv_label_create(play_row);
-    lv_label_set_text(tab_name_label, "No Tab Selected");
-    lv_obj_set_style_text_color(tab_name_label, lv_color_hex(0xFFFFFF), 0);
-
-    // Row 4: Time display
-    time_label = lv_label_create(scr);
-    lv_label_set_text(time_label, "0:00 / 0:00");
-    lv_obj_set_style_text_color(time_label, lv_color_hex(0x00FFFF), 0);
-
-    // Row 4.5: "Are you sure?" message (centered, initially hidden)
-    are_you_sure_label = lv_label_create(scr);
-    lv_label_set_text(are_you_sure_label, "Are you sure?");
-    lv_obj_set_style_text_color(are_you_sure_label, lv_color_hex(0xFFFF00), 0);
-    lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Initially hidden
-
-    // Row 5: Button functions container
-    lv_obj_t *button_row = lv_obj_create(scr);
-    lv_obj_set_size(button_row, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_set_layout(button_row, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(button_row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(button_row, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_bg_opa(button_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_opa(button_row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_pad_all(button_row, 0, 0);
-
-    btn1_label = lv_label_create(button_row);
-    lv_label_set_text(btn1_label, "");
-    lv_obj_set_style_text_color(btn1_label, lv_color_hex(0xFFFFFF), 0);
-
-    btn2_label = lv_label_create(button_row);
-    lv_label_set_text(btn2_label, "");
-    lv_obj_set_style_text_color(btn2_label, lv_color_hex(0xFFFFFF), 0);
-
-    btn3_label = lv_label_create(button_row);
-    lv_label_set_text(btn3_label, "");
-    lv_obj_set_style_text_color(btn3_label, lv_color_hex(0xFFFFFF), 0);
+    createTabInfoSection(main_ui_container);
+    createTransportSection(main_ui_container);
+    createButtonSection(main_ui_container);
+    // Start with connection status showing
+    showConnectionStatus("Connecting to WiFi...");
 }
 
 void UIManager::updateBatteryUI()
@@ -173,6 +100,10 @@ void UIManager::updateWiFiUI(const bool connected)
     auto color = connected ? lv_palette_main(LV_PALETTE_GREEN) : lv_palette_main(LV_PALETTE_RED);
     lv_obj_set_style_text_color(wifi_status_label, color, 0);
     lv_obj_invalidate(wifi_status_label);
+
+    // Track WiFi connection state and update UI
+    wifi_connected = connected;
+    updateConnectionState(wifi_connected, reaper_connected);
 }
 
 void UIManager::updateReaperStateUI(const reaper::ReaperState &state)
@@ -180,12 +111,13 @@ void UIManager::updateReaperStateUI(const reaper::ReaperState &state)
     if (!tab_info_label || !tab_name_label)
         return;
 
+    bool reaper_is_connected = state.success;
+    auto status_color = reaper_is_connected ? lv_palette_main(LV_PALETTE_GREEN) : lv_palette_main(LV_PALETTE_RED);
+    lv_obj_set_style_text_color(reaper_status_label, status_color, 0);
+    lv_obj_invalidate(reaper_status_label);
+
     if (state.success && !state.tabs.empty())
     {
-        auto status_color = state.success ? lv_palette_main(LV_PALETTE_GREEN) : lv_palette_main(LV_PALETTE_RED);
-        lv_obj_set_style_text_color(reaper_status_label, status_color, 0);
-        lv_obj_invalidate(reaper_status_label);
-
         // Update tab info
         char tab_info[32];
         snprintf(tab_info, sizeof(tab_info), "[%d of %d]",
@@ -224,6 +156,10 @@ void UIManager::updateReaperStateUI(const reaper::ReaperState &state)
         lv_obj_invalidate(tab_info_label);
         lv_obj_invalidate(tab_name_label);
     }
+
+    // Track Reaper connection state and update UI
+    reaper_connected = reaper_is_connected;
+    updateConnectionState(wifi_connected, reaper_connected);
 }
 
 void UIManager::updateTransportUI(const reaper::TransportState &transport_state, const reaper::ReaperState &reaper_state)
@@ -263,7 +199,7 @@ void UIManager::updateTransportUI(const reaper::TransportState &transport_state,
     }
     else
     {
-        icon_text = "---";
+        icon_text = "";
         icon_color = lv_color_hex(0x808080); // Gray
     }
 
@@ -325,9 +261,9 @@ void UIManager::updateButtonLabelsUI()
         lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Hide "Are you sure?"
         break;
     case UIState::PLAYING:
-        lv_label_set_text(btn1_label, "---");
+        lv_label_set_text(btn1_label, "");
         lv_label_set_text(btn2_label, LV_SYMBOL_STOP);
-        lv_label_set_text(btn3_label, "---");
+        lv_label_set_text(btn3_label, "");
         lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Hide "Are you sure?"
         break;
     case UIState::ARE_YOU_SURE:
@@ -354,4 +290,194 @@ void UIManager::updatePeriodicUI(unsigned long current_time)
         updateBatteryUI();
         last_battery_update = current_time;
     }
+}
+
+void UIManager::updateConnectionState(bool wifi_connected, bool reaper_connected)
+{
+    if (!wifi_connected)
+    {
+        showConnectionStatus("Connecting to WiFi...");
+    }
+    else if (!reaper_connected)
+    {
+        showConnectionStatus("Connecting to Reaper...");
+    }
+    else
+    {
+        showMainUI();
+    }
+}
+
+void UIManager::showConnectionStatus(const std::string &message)
+{
+    if (!connection_status_label || !main_ui_container)
+        return;
+
+    // Hide main UI
+    lv_obj_add_flag(main_ui_container, LV_OBJ_FLAG_HIDDEN);
+
+    // Show connection status message
+    lv_label_set_text(connection_status_label, message.c_str());
+    lv_obj_clear_flag(connection_status_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_invalidate(connection_status_label);
+}
+
+void UIManager::showMainUI()
+{
+    if (!connection_status_label || !main_ui_container)
+        return;
+
+    // Hide connection status message
+    lv_obj_add_flag(connection_status_label, LV_OBJ_FLAG_HIDDEN);
+
+    // Show main UI
+    lv_obj_clear_flag(main_ui_container, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_invalidate(main_ui_container);
+}
+
+// Private UI creation helper methods
+void UIManager::setupMainScreen()
+{
+    auto scr = lv_scr_act();
+    if (scr)
+    {
+        lv_obj_set_style_bg_color(scr, lv_color_black(), LV_PART_MAIN);
+    }
+}
+
+void UIManager::createGlobalContainer(lv_obj_t *parent)
+{
+    // Create global container (always visible - contains all other elements)
+    global_container = lv_obj_create(parent);
+    lv_obj_set_size(global_container, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_layout(global_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(global_container, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(global_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(global_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(global_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(global_container, 0, 0);
+    lv_obj_set_style_pad_gap(global_container, 10, 0);
+}
+
+void UIManager::createStatusContainer(lv_obj_t *parent)
+{
+    // Create status container (always visible - contains WiFi/Reaper/Battery status)
+    status_container = lv_obj_create(parent);
+    lv_obj_set_size(status_container, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(status_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(status_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(status_container, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(status_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(status_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(status_container, 0, 0);
+    lv_obj_set_style_pad_gap(status_container, 10, 0);
+
+    // Create status labels
+    reaper_status_label = lv_label_create(status_container);
+    lv_label_set_text(reaper_status_label, LV_SYMBOL_AUDIO);
+    lv_obj_set_style_text_color(reaper_status_label, lv_color_hex(0xFF0000), 0);
+
+    wifi_status_label = lv_label_create(status_container);
+    lv_label_set_text(wifi_status_label, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0xFF0000), 0);
+
+    battery_icon_label = lv_label_create(status_container);
+    lv_label_set_text(battery_icon_label, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_set_style_text_color(battery_icon_label, lv_color_hex(0xFFFFFF), 0);
+
+    battery_percentage_label = lv_label_create(status_container);
+    lv_label_set_text(battery_percentage_label, "??");
+    lv_obj_set_style_text_color(battery_percentage_label, lv_color_hex(0xFFFFFF), 0);
+}
+
+void UIManager::createConnectionStatusLabel(lv_obj_t *parent)
+{
+    // Create connection status label (shown when WiFi/Reaper not connected)
+    connection_status_label = lv_label_create(parent);
+    lv_label_set_text(connection_status_label, "Connecting...");
+    lv_obj_set_style_text_color(connection_status_label, lv_color_hex(0xFFFF00), 0);
+    lv_obj_set_style_text_align(connection_status_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_add_flag(connection_status_label, LV_OBJ_FLAG_HIDDEN); // Initially hidden
+}
+
+void UIManager::createMainUIContainer(lv_obj_t *parent)
+{
+    // Create main UI container (hidden when not connected)
+    main_ui_container = lv_obj_create(parent);
+    lv_obj_set_size(main_ui_container, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_grow(main_ui_container, 1); // This will make it grow to fill available space
+    lv_obj_set_layout(main_ui_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(main_ui_container, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(main_ui_container, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(main_ui_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(main_ui_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(main_ui_container, 0, 0);
+}
+
+void UIManager::createTabInfoSection(lv_obj_t *parent)
+{
+    // Tab index info (inside main UI container)
+    tab_info_label = lv_label_create(parent);
+    lv_label_set_text(tab_info_label, "[x of x]");
+    lv_obj_set_style_text_color(tab_info_label, lv_color_hex(0xFFFF00), 0);
+}
+
+void UIManager::createTransportSection(lv_obj_t *parent)
+{
+    // Play status container (Play icon + Tab name)
+    lv_obj_t *play_row = lv_obj_create(parent);
+    lv_obj_set_size(play_row, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(play_row, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(play_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(play_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(play_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(play_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(play_row, 0, 0);
+    lv_obj_set_style_pad_gap(play_row, 10, 0);
+
+    play_icon_label = lv_label_create(play_row);
+    lv_label_set_text(play_icon_label, LV_SYMBOL_STOP);
+    lv_obj_set_style_text_color(play_icon_label, lv_color_hex(0xFF0000), 0);
+
+    tab_name_label = lv_label_create(play_row);
+    lv_label_set_text(tab_name_label, "No Tab Selected");
+    lv_obj_set_style_text_color(tab_name_label, lv_color_hex(0xFFFFFF), 0);
+
+    time_label = lv_label_create(parent);
+    lv_label_set_text(time_label, "0:00 / 0:00");
+    lv_obj_set_style_text_color(time_label, lv_color_hex(0x00FFFF), 0);
+
+    printf("createTransportSection - Creating are_you_sure_label\n");
+    // "Are you sure?" message (centered, initially hidden)
+    are_you_sure_label = lv_label_create(parent);
+    lv_label_set_text(are_you_sure_label, "Are you sure?");
+    lv_obj_set_style_text_color(are_you_sure_label, lv_color_hex(0xFFFF00), 0);
+    lv_obj_add_flag(are_you_sure_label, LV_OBJ_FLAG_HIDDEN); // Initially hidden
+
+    printf("createTransportSection - Completed\n");
+}
+
+void UIManager::createButtonSection(lv_obj_t *parent)
+{
+    // Button functions container
+    lv_obj_t *button_row = lv_obj_create(parent);
+    lv_obj_set_size(button_row, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_layout(button_row, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(button_row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(button_row, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(button_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_opa(button_row, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(button_row, 0, 0);
+
+    btn1_label = lv_label_create(button_row);
+    lv_label_set_text(btn1_label, "");
+    lv_obj_set_style_text_color(btn1_label, lv_color_hex(0xFFFFFF), 0);
+
+    btn2_label = lv_label_create(button_row);
+    lv_label_set_text(btn2_label, "");
+    lv_obj_set_style_text_color(btn2_label, lv_color_hex(0xFFFFFF), 0);
+
+    btn3_label = lv_label_create(button_row);
+    lv_label_set_text(btn3_label, "");
+    lv_obj_set_style_text_color(btn3_label, lv_color_hex(0xFFFFFF), 0);
 }
